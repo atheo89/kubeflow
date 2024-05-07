@@ -439,6 +439,22 @@ func generateStatefulSet(instance *v1beta1.Notebook) *appsv1.StatefulSet {
 		(*l)[k] = v
 	}
 
+	pauseValue := "false" // Default is false, which means not paused
+	if replicas > 0 {
+		pauseValue = "true" // Set pause to true if replicas are greater than 0
+	}
+
+	// Add image triggers based on the "last-image-selection" annotation.
+	if imageSelection, ok := instance.Annotations["notebooks.opendatahub.io/last-image-selection"]; ok {
+		trigger := fmt.Sprintf(`[{"from":{"kind":"ImageStreamTag","name":"%s","namespace":"%s"},"fieldPath":"spec.template.spec.containers[?(@.name=='%s')].image","pause":'%s'}]`,
+			imageSelection, instance.Namespace, instance.Name, pauseValue)
+
+		if ss.ObjectMeta.Annotations == nil {
+			ss.ObjectMeta.Annotations = make(map[string]string)
+		}
+		ss.ObjectMeta.Annotations["image.openshift.io/triggers"] = trigger
+	}
+
 	podSpec := &ss.Spec.Template.Spec
 	container := &podSpec.Containers[0]
 	if container.WorkingDir == "" {
