@@ -128,6 +128,55 @@ func (r *NotebookReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, ignoreNotFound(err)
 	}
 
+	// ####### Logic to add annotation on notebook cr and update the image url  and image
+	// Update or add new annotations to the Notebook instance
+	if instance.ObjectMeta.Annotations == nil {
+		instance.ObjectMeta.Annotations = make(map[string]string)
+	}
+
+	// Add image triggers based on the "last-image-selection" annotation.
+	if imageSelection, ok := instance.Annotations["notebooks.opendatahub.io/last-image-selection"]; ok {
+		triggerAnnotation := fmt.Sprintf(`[{"from":{"kind":"ImageStreamTag","name":"%s","namespace":"%s"},"fieldPath":"spec.template.spec.containers[?(@.name=="%s")].image","pause":"false"}]`,
+			imageSelection, instance.Namespace, instance.Name)
+
+		// if ss.ObjectMeta.Annotations == nil {
+		// 	ss.ObjectMeta.Annotations = make(map[string]string)
+		// }
+		instance.ObjectMeta.Annotations["image.openshift.io/triggers"] = triggerAnnotation
+
+		// Assume the Notebook is not in deletion to modify its spec
+		if instance.DeletionTimestamp.IsZero() {
+			if len(instance.Spec.Template.Spec.Containers) > 0 {
+				container := &instance.Spec.Template.Spec.Containers[0]
+				// Update the container image
+				container.Image = imageSelection
+
+				// Update or add the JUPYTER_IMAGE environment variable
+				envFound := false
+				for i, env := range container.Env {
+					if env.Name == "JUPYTER_IMAGE" {
+						container.Env[i].Value = imageSelection
+						envFound = true
+						break
+					}
+				}
+				if !envFound {
+					container.Env = append(container.Env, corev1.EnvVar{
+						Name:  "JUPYTER_IMAGE",
+						Value: imageSelection,
+					})
+				}
+			}
+
+		}
+	}
+
+	// After updating the annotations, proceed to update the Notebook CR as usual
+	if err := r.Update(ctx, instance); err != nil {
+		log.Error(err, "Failed to update Notebook CR with new annotation")
+		return ctrl.Result{}, err
+	}
+
 	// jupyter-web-app deletes objects using foreground deletion policy, Notebook CR will stay until all owned objects are deleted
 	// reconcile loop might keep on trying to recreate the resources that the API server tries to delete.
 	// so when Notebook CR is terminating, reconcile loop should do nothing
@@ -433,6 +482,7 @@ func generateStatefulSet(instance *v1beta1.Notebook) *appsv1.StatefulSet {
 			},
 		},
 	}
+
 	// copy all of the Notebook labels to the pod including poddefault related labels
 	l := &ss.Spec.Template.ObjectMeta.Labels
 	for k, v := range instance.ObjectMeta.Labels {
@@ -446,13 +496,37 @@ func generateStatefulSet(instance *v1beta1.Notebook) *appsv1.StatefulSet {
 
 	// Add image triggers based on the "last-image-selection" annotation.
 	if imageSelection, ok := instance.Annotations["notebooks.opendatahub.io/last-image-selection"]; ok {
-		trigger := fmt.Sprintf(`[{"from":{"kind":"ImageStreamTag","name":"%s","namespace":"%s"},"fieldPath":"spec.template.spec.containers[?(@.name=='%s')].image","pause":'%s'}]`,
+		trigger := fmt.Sprintf(`[{"from":{"kind":"ImageStreamTag","name":"%s","namespace":"%s"},"fieldPath":"spec.template.spec.containers[?(@.name=="%s")].image","pause":"%s"}]`,
 			imageSelection, instance.Namespace, instance.Name, pauseValue)
 
 		if ss.ObjectMeta.Annotations == nil {
 			ss.ObjectMeta.Annotations = make(map[string]string)
 		}
 		ss.ObjectMeta.Annotations["image.openshift.io/triggers"] = trigger
+
+		// Assuming the first container is the one to update
+		if len(ss.Spec.Template.Spec.Containers) > 0 {
+			container := &ss.Spec.Template.Spec.Containers[0]
+			// Update the container image
+			container.Image = imageSelection
+
+			// Update the environment variable
+			envUpdated := false
+			for i, envVar := range container.Env {
+				if envVar.Name == "JUPYTER_IMAGE" {
+					container.Env[i].Value = imageSelection
+					envUpdated = true
+					break
+				}
+			}
+			if !envUpdated {
+				container.Env = append(container.Env, corev1.EnvVar{
+					Name:  "JUPYTER_IMAGE",
+					Value: imageSelection,
+				})
+			}
+		}
+
 	}
 
 	podSpec := &ss.Spec.Template.Spec
