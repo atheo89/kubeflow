@@ -139,9 +139,6 @@ func (r *NotebookReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		triggerAnnotation := fmt.Sprintf(`[{"from":{"kind":"ImageStreamTag","name":"%s","namespace":"%s"},"fieldPath":"spec.template.spec.containers[?(@.name=="%s")].image","pause":"false"}]`,
 			imageSelection, instance.Namespace, instance.Name)
 
-		// if ss.ObjectMeta.Annotations == nil {
-		// 	ss.ObjectMeta.Annotations = make(map[string]string)
-		// }
 		instance.ObjectMeta.Annotations["image.openshift.io/triggers"] = triggerAnnotation
 
 		// Assume the Notebook is not in deletion to modify its spec
