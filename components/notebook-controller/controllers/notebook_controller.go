@@ -128,52 +128,6 @@ func (r *NotebookReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, ignoreNotFound(err)
 	}
 
-	// ####### Logic to add annotation on notebook cr and update the image url  and image
-	// Update or add new annotations to the Notebook instance
-	if instance.ObjectMeta.Annotations == nil {
-		instance.ObjectMeta.Annotations = make(map[string]string)
-	}
-
-	// Add image triggers based on the "last-image-selection" annotation.
-	if imageSelection, ok := instance.Annotations["notebooks.opendatahub.io/last-image-selection"]; ok {
-		triggerAnnotation := fmt.Sprintf(`[{"from":{"kind":"ImageStreamTag","name":"%s","namespace":"%s"},"fieldPath":"spec.template.spec.containers[?(@.name=="%s")].image","pause":"false"}]`,
-			imageSelection, instance.Namespace, instance.Name)
-
-		instance.ObjectMeta.Annotations["image.openshift.io/triggers"] = triggerAnnotation
-
-		// Assume the Notebook is not in deletion to modify its spec
-		if instance.DeletionTimestamp.IsZero() {
-			if len(instance.Spec.Template.Spec.Containers) > 0 {
-				container := &instance.Spec.Template.Spec.Containers[0]
-				// Update the container image
-				container.Image = imageSelection
-
-				// Update or add the JUPYTER_IMAGE environment variable
-				envFound := false
-				for i, env := range container.Env {
-					if env.Name == "JUPYTER_IMAGE" {
-						container.Env[i].Value = imageSelection
-						envFound = true
-						break
-					}
-				}
-				if !envFound {
-					container.Env = append(container.Env, corev1.EnvVar{
-						Name:  "JUPYTER_IMAGE",
-						Value: imageSelection,
-					})
-				}
-			}
-
-		}
-	}
-
-	// After updating the annotations, proceed to update the Notebook CR as usual
-	if err := r.Update(ctx, instance); err != nil {
-		log.Error(err, "Failed to update Notebook CR with new annotation")
-		return ctrl.Result{}, err
-	}
-
 	// jupyter-web-app deletes objects using foreground deletion policy, Notebook CR will stay until all owned objects are deleted
 	// reconcile loop might keep on trying to recreate the resources that the API server tries to delete.
 	// so when Notebook CR is terminating, reconcile loop should do nothing
@@ -459,8 +413,9 @@ func generateStatefulSet(instance *v1beta1.Notebook) *appsv1.StatefulSet {
 
 	ss := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      instance.Name,
-			Namespace: instance.Namespace,
+			Name:        instance.Name,
+			Namespace:   instance.Namespace,
+			Annotations: instance.Annotations,
 		},
 		Spec: appsv1.StatefulSetSpec{
 			Replicas: &replicas,
@@ -486,44 +441,27 @@ func generateStatefulSet(instance *v1beta1.Notebook) *appsv1.StatefulSet {
 		(*l)[k] = v
 	}
 
-	pauseValue := "false" // Default is false, which means not paused
-	if replicas > 0 {
-		pauseValue = "true" // Set pause to true if replicas are greater than 0
-	}
-
-	// Add image triggers based on the "last-image-selection" annotation.
-	if imageSelection, ok := instance.Annotations["notebooks.opendatahub.io/last-image-selection"]; ok {
-		trigger := fmt.Sprintf(`[{"from":{"kind":"ImageStreamTag","name":"%s","namespace":"%s"},"fieldPath":"spec.template.spec.containers[?(@.name=="%s")].image","pause":"%s"}]`,
-			imageSelection, instance.Namespace, instance.Name, pauseValue)
-
-		if ss.ObjectMeta.Annotations == nil {
-			ss.ObjectMeta.Annotations = make(map[string]string)
-		}
-		ss.ObjectMeta.Annotations["image.openshift.io/triggers"] = trigger
-
-		// Assuming the first container is the one to update
-		if len(ss.Spec.Template.Spec.Containers) > 0 {
-			container := &ss.Spec.Template.Spec.Containers[0]
-			// Update the container image
-			container.Image = imageSelection
-
-			// Update the environment variable
-			envUpdated := false
-			for i, envVar := range container.Env {
-				if envVar.Name == "JUPYTER_IMAGE" {
-					container.Env[i].Value = imageSelection
-					envUpdated = true
-					break
-				}
-			}
-			if !envUpdated {
-				container.Env = append(container.Env, corev1.EnvVar{
-					Name:  "JUPYTER_IMAGE",
-					Value: imageSelection,
-				})
-			}
+	// Extract the trigger annotation
+	triggerAnnotationKey := "image.openshift.io/triggers"
+	triggerAnnotation, ok := instance.Annotations[triggerAnnotationKey]
+	if ok {
+		// Default pause value
+		pauseValue := "false"
+		if replicas > 0 {
+			pauseValue = "true"
 		}
 
+		// Modify the trigger annotation to include the pause field
+		var triggers []map[string]interface{}
+		if err := json.Unmarshal([]byte(triggerAnnotation), &triggers); err == nil {
+			for _, trigger := range triggers {
+				trigger["pause"] = pauseValue
+			}
+
+			if modifiedTriggers, err := json.Marshal(triggers); err == nil {
+				ss.Annotations[triggerAnnotationKey] = string(modifiedTriggers)
+			}
+		}
 	}
 
 	podSpec := &ss.Spec.Template.Spec

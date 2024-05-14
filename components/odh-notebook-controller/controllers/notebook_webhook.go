@@ -237,22 +237,6 @@ func (w *NotebookWebhook) Handle(ctx context.Context, req admission.Request) adm
 	// Log the processing of a new request
 	log.Info("Processing request", "operation", req.Operation, "notebookName", notebook.Name)
 
-	// Check for the image annotation and update the container image
-	imageAnnotationKey := "notebooks.opendatahub.io/last-image-selection"
-	if image, ok := notebook.Annotations[imageAnnotationKey]; ok && image != "" {
-		log.Info("Found image selection annotation", "image", image)
-		if len(notebook.Spec.Template.Spec.Containers) > 0 {
-			// Update the first container's image to the one specified in the annotation
-			notebook.Spec.Template.Spec.Containers[0].Image = image
-			log.Info("Updated container image from annotation", "newImage", image)
-
-			// Optionally, set the JUPYTER_IMAGE environment variable to match the image
-			updateJupyterImageEnv(&notebook.Spec.Template.Spec.Containers[0], image)
-		}
-	} else {
-		log.Info("No image selection annotation found, using default image settings")
-	}
-
 	// Inject the reconciliation lock only on new notebook creation
 	if req.Operation == admissionv1.Create {
 		err = InjectReconciliationLock(&notebook.ObjectMeta)
@@ -265,6 +249,12 @@ func (w *NotebookWebhook) Handle(ctx context.Context, req admission.Request) adm
 		if err != nil {
 			return admission.Errored(http.StatusInternalServerError, err)
 		}
+
+		err = addImageTriggerAnnotation(notebook, log)
+		if err != nil {
+			return admission.Errored(http.StatusInternalServerError, err)
+		}
+
 	}
 
 	// Inject the OAuth proxy if the annotation is present but only if Service Mesh is disabled
@@ -287,22 +277,22 @@ func (w *NotebookWebhook) Handle(ctx context.Context, req admission.Request) adm
 	return admission.PatchResponseFromRaw(req.Object.Raw, marshaledNotebook)
 }
 
-// updateJupyterImageEnv updates or adds the JUPYTER_IMAGE environment variable in a container
-func updateJupyterImageEnv(container *corev1.Container, image string) {
-	found := false
-	for i, env := range container.Env {
-		if env.Name == "JUPYTER_IMAGE" {
-			container.Env[i].Value = image
-			found = true
-			break
+// addImageTriggerAnnotation checks for the last-image-selection annotation and adds the image.openshift.io/triggers annotation if necessary.
+func addImageTriggerAnnotation(notebook *nbv1.Notebook, log logr.Logger) error {
+	annotations := notebook.GetAnnotations()
+	if annotations != nil {
+		if lastImageSelection, exists := annotations["notebooks.opendatahub.io/last-image-selection"]; exists {
+			namespace := notebook.Namespace
+			instanceName := notebook.Name
+
+			triggerAnnotation := fmt.Sprintf(`[{"from":{"kind":"ImageStreamTag","name":"%s", "namespace":"%s"},"fieldPath":"spec.template.spec.containers[?(@.name==\"%s\")].image"}]`, lastImageSelection, namespace, instanceName)
+			annotations["image.openshift.io/triggers"] = triggerAnnotation
+			notebook.SetAnnotations(annotations)
+			log.Info("Trigger Annotation added")
+
 		}
 	}
-	if !found {
-		container.Env = append(container.Env, corev1.EnvVar{
-			Name:  "JUPYTER_IMAGE",
-			Value: image,
-		})
-	}
+	return nil
 }
 
 // InjectDecoder injects the decoder.
