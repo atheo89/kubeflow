@@ -34,6 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -254,7 +255,7 @@ func (w *NotebookWebhook) Handle(ctx context.Context, req admission.Request) adm
 		}
 
 		// Check Imagestream Info
-		err = CheckRegistryExistance(ctx, w.Client, notebook, log)
+		err = SetContainerImageFromRegistry(ctx, w.Client, notebook, log)
 		if err != nil {
 			return admission.Errored(http.StatusInternalServerError, err)
 		}
@@ -286,26 +287,32 @@ func (w *NotebookWebhook) InjectDecoder(d *admission.Decoder) error {
 	return nil
 }
 
-// Checks if there is or not registry based ImageStream  dockerImageRepository field.
-func CheckRegistryExistance(ctx context.Context, cli client.Client, notebook *nbv1.Notebook, log logr.Logger) error {
+// This function checks if there is an internal registry and takes the corresponding actions to set the container.image value.
+// If an internal registry is detected, it uses the default values specified in the Notebook Custom Resource (CR).
+// Otherwise, it checks the last-image-selection annotation to find the image stream and fetches the image from status.dockerImageReference,
+// assigning it to the container.image value.
+func SetContainerImageFromRegistry(ctx context.Context, cli client.Client, notebook *nbv1.Notebook, log logr.Logger) error {
 
 	// Load kubeconfig
-	kubeconfig := os.Getenv("KUBECONFIG")
-	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
+	config, err := rest.InClusterConfig()
 	if err != nil {
-		fmt.Printf("Error creating config: %v\n", err)
-		return err
+		kubeconfig := os.Getenv("KUBECONFIG")
+		config, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
+		if err != nil {
+			fmt.Printf("Error creating config: %v\n", err)
+			return err
+		}
 	}
 
 	// Create a dynamic client
 	dynamicClient, err := dynamic.NewForConfig(config)
 	if err != nil {
-		fmt.Printf("Error creating dynamic client: %v\n", err)
+		log.Error(err, "Error creating dynamic client")
 		return err
 	}
 
 	// Specify the GroupVersionResource for imagestreams
-	gvr := schema.GroupVersionResource{
+	ims := schema.GroupVersionResource{
 		Group:    "image.openshift.io",
 		Version:  "v1",
 		Resource: "imagestreams",
@@ -315,39 +322,41 @@ func CheckRegistryExistance(ctx context.Context, cli client.Client, notebook *nb
 	if annotations != nil {
 		if imageSelection, exists := annotations["notebooks.opendatahub.io/last-image-selection"]; exists {
 
-			log.Info("Image Selection is", "image", imageSelection)
-
-			// Split the imageSelection to imagestream and tag
-			parts := strings.Split(imageSelection, ":")
-			imagestreamName := parts[0]
-			tag := parts[1]
-
-			// Specify the namespaces to search in
-			namespaces := []string{"opendatahub", "redhat-ods-applications"}
-			// Specify the imagestream name to search for
-			searchName := imagestreamName
-
-			for _, namespace := range namespaces {
-				// List imagestreams in the specified namespace
-				imagestreams, err := dynamicClient.Resource(gvr).Namespace(namespace).List(context.TODO(), metav1.ListOptions{})
-				if err != nil {
-					fmt.Printf("Cannot listing imagestreams on %s namespace, because doesn't exists: %v\n", namespace, err)
-					continue
+			// Check if the image selection has an internal registry
+			if strings.Contains(notebook.Spec.Template.Spec.Containers[0].Image, "image-registry.openshift-image-registry.svc:5000") {
+				log.Info("Internal registry found in image, no need to look further.")
+				return nil
+			} else {
+				// Split the imageSelection to imagestream and tag
+				parts := strings.Split(imageSelection, ":")
+				if len(parts) != 2 {
+					log.Error(nil, "Invalid image selection format")
+					return fmt.Errorf("invalid image selection format")
 				}
 
-				// Iterate through the imagestreams to find matches
-				for _, item := range imagestreams.Items {
-					imagestream := item.Object
-					metadata := imagestream["metadata"].(map[string]interface{})
-					name := metadata["name"].(string)
+				imagestreamName := parts[0]
+				tag := parts[1]
 
-					if name == searchName {
-						fmt.Printf("Found Imagestream: %s in Namespace: %s\n", name, namespace)
-						status := imagestream["status"].(map[string]interface{})
-						dockerImageRepository, found := status["dockerImageRepository"].(string)
+				// Specify the namespaces to search in
+				namespaces := []string{"opendatahub", "redhat-ods-applications"}
 
-						if !found || dockerImageRepository == "" {
-							fmt.Println("No Internal registry found, pick up imageHash from status.tag.dockerImageReference")
+				for _, namespace := range namespaces {
+					// List imagestreams in the specified namespace
+					imagestreams, err := dynamicClient.Resource(ims).Namespace(namespace).List(ctx, metav1.ListOptions{})
+					if err != nil {
+						log.Error(err, "Cannot list imagestreams", "namespace", namespace)
+						continue
+					}
+
+					// Iterate through the imagestreams to find matches
+					for _, item := range imagestreams.Items {
+						metadata := item.Object["metadata"].(map[string]interface{})
+						name := metadata["name"].(string)
+
+						if name == imagestreamName {
+							status := item.Object["status"].(map[string]interface{})
+
+							log.Info("No Internal registry found, pick up imageHash from status.tag.dockerImageReference")
 
 							tags := status["tags"].([]interface{})
 							for _, t := range tags {
@@ -364,25 +373,22 @@ func CheckRegistryExistance(ctx context.Context, cli client.Client, notebook *nb
 										})
 										imageHash := items[0].(map[string]interface{})["dockerImageReference"].(string)
 										notebook.Spec.Template.Spec.Containers[0].Image = imageHash
-										fmt.Printf("Set image to %s from imagestream tag %s\n", imageHash, tag)
+										// Update the JUPYTER_IMAGE environment variable
+										for i, envVar := range notebook.Spec.Template.Spec.Containers[0].Env {
+											if envVar.Name == "JUPYTER_IMAGE" {
+												notebook.Spec.Template.Spec.Containers[0].Env[i].Value = imageHash
+												break
+											}
+										}
+										return nil
 									}
 								}
 							}
-
-						} else {
-							fmt.Println("Internal registry found, pick up image from dockerImageRepository field.")
-							imageHash := fmt.Sprintf("%s:%s", dockerImageRepository, tag)
-							notebook.Spec.Template.Spec.Containers[0].Image = imageHash
-							fmt.Printf("Set image to %s from dockerImageRepository\n", imageHash)
 						}
-
 					}
 				}
-
 			}
-
 		}
-
 	}
 
 	return nil
