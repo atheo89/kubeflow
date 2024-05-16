@@ -250,7 +250,8 @@ func (w *NotebookWebhook) Handle(ctx context.Context, req admission.Request) adm
 			return admission.Errored(http.StatusInternalServerError, err)
 		}
 
-		err = addImageTriggerAnnotation(notebook, log)
+		// Inject the image trigger annotation to the new notebook
+		err = InjectImageTriggerAnnotation(notebook, ctx, log)
 		if err != nil {
 			return admission.Errored(http.StatusInternalServerError, err)
 		}
@@ -277,21 +278,28 @@ func (w *NotebookWebhook) Handle(ctx context.Context, req admission.Request) adm
 	return admission.PatchResponseFromRaw(req.Object.Raw, marshaledNotebook)
 }
 
-// addImageTriggerAnnotation checks for the last-image-selection annotation and adds the image.openshift.io/triggers annotation if necessary.
-func addImageTriggerAnnotation(notebook *nbv1.Notebook, log logr.Logger) error {
-	annotations := notebook.GetAnnotations()
-	if annotations != nil {
-		if lastImageSelection, exists := annotations["notebooks.opendatahub.io/last-image-selection"]; exists {
-			namespace := notebook.Namespace
-			instanceName := notebook.Name
+// InjectImageTriggerAnnotation injects the trigger annotation to the notebook
+func InjectImageTriggerAnnotation(notebook *nbv1.Notebook, ctx context.Context, log logr.Logger) error {
 
-			triggerAnnotation := fmt.Sprintf(`[{"from":{"kind":"ImageStreamTag","name":"%s", "namespace":"%s"},"fieldPath":"spec.template.spec.containers[?(@.name==\"%s\")].image"}]`, lastImageSelection, namespace, instanceName)
-			annotations["image.openshift.io/triggers"] = triggerAnnotation
-			notebook.SetAnnotations(annotations)
-			log.Info("Trigger Annotation added")
+	// Check if the image needs to be updated
+	if notebook.Spec.Template.Spec.Containers[0].Image != notebook.Annotations["notebooks.opendatahub.io/last-image-selection"] {
+		// Add the trigger annotation to the notebook
+		if imageSelection, ok := notebook.Annotations["notebooks.opendatahub.io/last-image-selection"]; ok {
+			trigger := fmt.Sprintf(`[{"from":{"kind":"ImageStreamTag","name":"%s","namespace":"%s"},"fieldPath":"spec.template.spec.containers[?(@.name==\\"%s\\")].image"}]`, imageSelection, notebook.Namespace, notebook.Name)
+
+			if notebook.Annotations == nil {
+				notebook.Annotations = make(map[string]string)
+			}
+			notebook.Annotations["image.openshift.io/triggers"] = trigger
+			log.Info("Add the trigger annotation to the notebook")
+
+			notebook.Spec.Template.Spec.Containers[0].Image = imageSelection
+			log.Info("Updated the image on the notebook container", "image", imageSelection)
 
 		}
+
 	}
+
 	return nil
 }
 

@@ -441,29 +441,6 @@ func generateStatefulSet(instance *v1beta1.Notebook) *appsv1.StatefulSet {
 		(*l)[k] = v
 	}
 
-	// Extract the trigger annotation
-	triggerAnnotationKey := "image.openshift.io/triggers"
-	triggerAnnotation, ok := instance.Annotations[triggerAnnotationKey]
-	if ok {
-		// Default pause value
-		pauseValue := "false"
-		if replicas > 0 {
-			pauseValue = "true"
-		}
-
-		// Modify the trigger annotation to include the pause field
-		var triggers []map[string]interface{}
-		if err := json.Unmarshal([]byte(triggerAnnotation), &triggers); err == nil {
-			for _, trigger := range triggers {
-				trigger["pause"] = pauseValue
-			}
-
-			if modifiedTriggers, err := json.Marshal(triggers); err == nil {
-				ss.Annotations[triggerAnnotationKey] = string(modifiedTriggers)
-			}
-		}
-	}
-
 	podSpec := &ss.Spec.Template.Spec
 	container := &podSpec.Containers[0]
 	if container.WorkingDir == "" {
