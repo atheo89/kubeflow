@@ -20,6 +20,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
+	"sort"
+	"strings"
 
 	"github.com/go-logr/logr"
 	nbv1 "github.com/kubeflow/kubeflow/components/notebook-controller/api/v1"
@@ -28,7 +31,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
@@ -246,6 +252,12 @@ func (w *NotebookWebhook) Handle(ctx context.Context, req admission.Request) adm
 		if err != nil {
 			return admission.Errored(http.StatusInternalServerError, err)
 		}
+
+		// Check Imagestream Info
+		err = CheckRegistryExistance(ctx, w.Client, notebook, log)
+		if err != nil {
+			return admission.Errored(http.StatusInternalServerError, err)
+		}
 	}
 
 	// Inject the OAuth proxy if the annotation is present but only if Service Mesh is disabled
@@ -271,6 +283,108 @@ func (w *NotebookWebhook) Handle(ctx context.Context, req admission.Request) adm
 // InjectDecoder injects the decoder.
 func (w *NotebookWebhook) InjectDecoder(d *admission.Decoder) error {
 	w.Decoder = d
+	return nil
+}
+
+// Checks if there is or not registry based ImageStream  dockerImageRepository field.
+func CheckRegistryExistance(ctx context.Context, cli client.Client, notebook *nbv1.Notebook, log logr.Logger) error {
+
+	// Load kubeconfig
+	kubeconfig := os.Getenv("KUBECONFIG")
+	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
+	if err != nil {
+		fmt.Printf("Error creating config: %v\n", err)
+		return err
+	}
+
+	// Create a dynamic client
+	dynamicClient, err := dynamic.NewForConfig(config)
+	if err != nil {
+		fmt.Printf("Error creating dynamic client: %v\n", err)
+		return err
+	}
+
+	// Specify the GroupVersionResource for imagestreams
+	gvr := schema.GroupVersionResource{
+		Group:    "image.openshift.io",
+		Version:  "v1",
+		Resource: "imagestreams",
+	}
+
+	annotations := notebook.GetAnnotations()
+	if annotations != nil {
+		if imageSelection, exists := annotations["notebooks.opendatahub.io/last-image-selection"]; exists {
+
+			log.Info("Image Selection is", "image", imageSelection)
+
+			// Split the imageSelection to imagestream and tag
+			parts := strings.Split(imageSelection, ":")
+			imagestreamName := parts[0]
+			tag := parts[1]
+
+			// Specify the namespaces to search in
+			namespaces := []string{"opendatahub", "redhat-ods-applications"}
+			// Specify the imagestream name to search for
+			searchName := imagestreamName
+
+			for _, namespace := range namespaces {
+				// List imagestreams in the specified namespace
+				imagestreams, err := dynamicClient.Resource(gvr).Namespace(namespace).List(context.TODO(), metav1.ListOptions{})
+				if err != nil {
+					fmt.Printf("Cannot listing imagestreams on %s namespace, because doesn't exists: %v\n", namespace, err)
+					continue
+				}
+
+				// Iterate through the imagestreams to find matches
+				for _, item := range imagestreams.Items {
+					imagestream := item.Object
+					metadata := imagestream["metadata"].(map[string]interface{})
+					name := metadata["name"].(string)
+
+					if name == searchName {
+						fmt.Printf("Found Imagestream: %s in Namespace: %s\n", name, namespace)
+						status := imagestream["status"].(map[string]interface{})
+						dockerImageRepository, found := status["dockerImageRepository"].(string)
+
+						if !found || dockerImageRepository == "" {
+							fmt.Println("No Internal registry found, pick up imageHash from status.tag.dockerImageReference")
+
+							tags := status["tags"].([]interface{})
+							for _, t := range tags {
+								tagMap := t.(map[string]interface{})
+								tagName := tagMap["tag"].(string)
+								if tagName == tag {
+									items := tagMap["items"].([]interface{})
+									if len(items) > 0 {
+										// Sort items by creationTimestamp to get the most recent one
+										sort.Slice(items, func(i, j int) bool {
+											iTime := items[i].(map[string]interface{})["created"].(string)
+											jTime := items[j].(map[string]interface{})["created"].(string)
+											return iTime > jTime
+										})
+										imageHash := items[0].(map[string]interface{})["dockerImageReference"].(string)
+										notebook.Spec.Template.Spec.Containers[0].Image = imageHash
+										fmt.Printf("Set image to %s from imagestream tag %s\n", imageHash, tag)
+									}
+								}
+							}
+
+						} else {
+							fmt.Println("Internal registry found, pick up image from dockerImageRepository field.")
+							imageHash := fmt.Sprintf("%s:%s", dockerImageRepository, tag)
+							notebook.Spec.Template.Spec.Containers[0].Image = imageHash
+							fmt.Printf("Set image to %s from dockerImageRepository\n", imageHash)
+						}
+
+					}
+				}
+
+			}
+
+		}
+
+	}
+
 	return nil
 }
 
