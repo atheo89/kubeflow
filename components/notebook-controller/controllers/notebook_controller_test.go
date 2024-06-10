@@ -13,6 +13,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	nbv1beta1 "github.com/kubeflow/kubeflow/components/notebook-controller/api/v1beta1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -74,11 +75,11 @@ func TestNbNameFromInvolvedObject(t *testing.T) {
 			expectedNbName: "test-notebook",
 		},
 	}
-	objects := []runtime.Object{testPod, testSts}
+	objects := []client.Object{testPod, testSts}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			c := fake.NewFakeClientWithScheme(scheme.Scheme, objects...)
+			c := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithObjects(objects...).Build()
 			nbName, err := nbNameFromInvolvedObject(c, &test.event.InvolvedObject)
 			if err != nil {
 				t.Fatalf("Unexpected error: %v", err)
