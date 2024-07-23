@@ -67,4 +67,19 @@ jobs:
           echo "There were no changes detected on ${{ env.BRANCH_NAME }}"
         fi
 
+    - name: Create Pull Request
+      run: |
+          gh pr create --repo https://github.com/opendatahub-io/kubeflow.git \
+            --title "$pr_title" \
+            --body "$pr_body" \
+            --head opendatahub-io:${{ env.TEMP_UPDATER_BRANCH }} \
+            --base ${{ env.BRANCH_NAME }}
+      env:
+          pr_title: "[GHA] Update odh and notebook-controller with image 1.7-${{ steps.commit-id.outputs.COMMIT_ID }}"
+          pr_body: |
+            :robot: This is an automated Pull Request created by `/.github/workflows/notebook-controller-images-updater.yaml`.
 
+            Have been updated the following related files:
+              - components/notebook-controller/config/overlays/openshift/params.env
+              - components/odh-notebook-controller/config/base/params.env
+              - components/odh-notebook-controller/Makefile
