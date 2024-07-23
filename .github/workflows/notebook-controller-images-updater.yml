@@ -76,7 +76,6 @@ jobs:
             --head opendatahub-io:${{ env.TEMP_UPDATER_BRANCH }} \
             --base ${{ env.BRANCH_NAME }}
       env:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
           pr_title: "[GHA] Update odh and notebook-controller with image 1.7-${{ steps.commit-id.outputs.COMMIT_ID }}"
           pr_body: |
             :robot: This is an automated Pull Request created by `/.github/workflows/notebook-controller-images-updater.yaml`.
