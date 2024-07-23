@@ -59,7 +59,7 @@ jobs:
           git add components/odh-notebook-controller/Makefile && \
           git commit -m "Update odh and notebook-controller with image 1.7-$COMMIT_ID" && \
           git push origin  ${{ env.TEMP_UPDATER_BRANCH }} && \
-          git log
+          git log --oneline
         else
             echo "There were no changes detected on ${{ env.BRANCH_NAME }}"
         fi
