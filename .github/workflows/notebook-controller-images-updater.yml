@@ -68,20 +68,3 @@ jobs:
         fi
 
 
-    - name: pull-request
-      uses: repo-sync/pull-request@v2
-      with:
-          source_branch: ${{ env.TEMP_UPDATER_BRANCH }}
-          destination_branch: ${{ env.BRANCH_NAME}}
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          pr_label: "automated pr"
-          pr_title: "[Digest Updater Action] Update Notebook Images"
-          pr_body: |
-            :rocket: This is an automated Pull Request.
-            Created by `/.github/workflows/notebooks-digest-updater-upstream.yaml`
-
-            This PR updates the following files:
-            - `manifests/base/params.env` file with the latest updated SHA digests of the notebooks (N & N-1).
-            - `manifests/base/commit.env` file with the latest commit (N & N-1).
-
-            :exclamation: **IMPORTANT NOTE**: Remember to delete the ` ${{ env.DIGEST_UPDATER_BRANCH }}` branch after merging the changes
