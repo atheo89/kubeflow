@@ -45,6 +45,7 @@ jobs:
     - name: Update related files
       id: apply-changes
       run: |
+        COMMIT_ID=${{ steps.commit-id.outputs.COMMIT_ID }}
         echo "Updating files with COMMIT_ID=${COMMIT_ID}"
         sed -i "s/\(odh-kf-notebook-controller-image=quay\.io\/opendatahub\/kubeflow-notebook-controller:1\.7-\)[a-z0-9]\{7\}/\1${COMMIT_ID}/" components/notebook-controller/config/overlays/openshift/params.env
         sed -i "s/\(odh-notebook-controller-image=quay\.io\/opendatahub\/odh-notebook-controller:1\.7-\)[a-z0-9]\{7\}/\1${COMMIT_ID}/" components/odh-notebook-controller/config/base/params.env
