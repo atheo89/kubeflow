@@ -67,19 +67,21 @@ jobs:
           echo "There were no changes detected on ${{ env.BRANCH_NAME }}"
         fi
 
-    - name: Create pull request
-      uses: peter-evans/create-pull-request@v6
-      with:
-        token: ${{ secrets.GITHUB_TOKEN }}
-        branch: ${{ env.TEMP_UPDATER_BRANCH }}
-        base: ${{ env.BRANCH_NAME }}
-        title: "[GHA] Update odh and notebook-controller with image 1.7-${{ steps.commit-id.outputs.COMMIT_ID }}"
-        body: |
-          :robot: This is an automated Pull Request created by `/.github/workflows/notebook-controller-images-updater.yaml`.
 
-          Have been updated the following related files:
-            - components/notebook-controller/config/overlays/openshift/params.env
-            - components/odh-notebook-controller/config/base/params.env
-            - components/odh-notebook-controller/Makefile
-        labels: |
-            automated pr
+    - name: pull-request
+      uses: repo-sync/pull-request@v2
+      with:
+          source_branch: ${{ env.TEMP_UPDATER_BRANCH }}
+          destination_branch: ${{ env.BRANCH_NAME}}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          pr_label: "automated pr"
+          pr_title: "[Digest Updater Action] Update Notebook Images"
+          pr_body: |
+            :rocket: This is an automated Pull Request.
+            Created by `/.github/workflows/notebooks-digest-updater-upstream.yaml`
+
+            This PR updates the following files:
+            - `manifests/base/params.env` file with the latest updated SHA digests of the notebooks (N & N-1).
+            - `manifests/base/commit.env` file with the latest commit (N & N-1).
+
+            :exclamation: **IMPORTANT NOTE**: Remember to delete the ` ${{ env.DIGEST_UPDATER_BRANCH }}` branch after merging the changes
