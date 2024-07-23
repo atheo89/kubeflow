@@ -8,7 +8,13 @@ on:  # yamllint disable-line rule:truthy
         description: "Provide name of the branch, ex: v1.7-branch"
         required: true
         default: "v1.7-branch"
+      organization:
+        required: true
+        description: "Owner of origin notebooks repository used to open a PR"
+        default: "opendatahub-io"
 env:
+  REPO_OWNER: ${{ github.event.inputs.organization }}
+  REPO_NAME: kubeflow
   TEMP_UPDATER_BRANCH: temp-${{ github.run_id }}
   BRANCH_NAME: ${{ github.event.inputs.branch-name }}
 
@@ -67,14 +73,12 @@ jobs:
           echo "There were no changes detected on ${{ env.BRANCH_NAME }}"
         fi
         
-
-
     - name: Create Pull Request
       run: |
-          gh pr create --repo https://github.com/atheo89/kubeflow.git \
+          gh pr create --repo https://github.com/$REPO_OWNER/$REPO_NAME.git \
             --title "$pr_title" \
             --body "$pr_body" \
-            --head atheo89:${{ env.TEMP_UPDATER_BRANCH }} \
+            --head $REPO_OWNER:${{ env.TEMP_UPDATER_BRANCH }} \
             --base ${{ env.BRANCH_NAME }}
       env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
