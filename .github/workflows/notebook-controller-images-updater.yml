@@ -66,15 +66,12 @@ jobs:
         else
           echo "There were no changes detected on ${{ env.BRANCH_NAME }}"
         fi
-        echo "branch=${{ env.TEMP_UPDATER_BRANCH }}" >> $GITHUB_OUTPUT
-
-
 
     - name: Create pull request (peter-evans)
       uses: peter-evans/create-pull-request@v6
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
-        branch: ${{ steps.apply-changes.outputs.branch }}
+        branch: ${{ env.TEMP_UPDATER_BRANCH }}
         base: ${{ env.BRANCH_NAME }}
         title: "[GHA] Update odh and notebook-controller with image 1.7-${{ steps.commit-id.outputs.COMMIT_ID }}"
         body: |
