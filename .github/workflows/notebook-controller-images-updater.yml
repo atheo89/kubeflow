@@ -67,23 +67,6 @@ jobs:
           echo "There were no changes detected on ${{ env.BRANCH_NAME }}"
         fi
 
-    - name: Create pull request (peter-evans)
-      uses: peter-evans/create-pull-request@v6
-      with:
-        token: ${{ secrets.GITHUB_TOKEN }}
-        branch: ${{ env.TEMP_UPDATER_BRANCH }}
-        base: ${{ env.BRANCH_NAME }}
-        title: "[GHA] Update odh and notebook-controller with image 1.7-${{ steps.commit-id.outputs.COMMIT_ID }}"
-        body: |
-          :robot: This is an automated Pull Request created by `/.github/workflows/notebook-controller-images-updater.yaml`.
-
-          Have been updated the following related files:
-            - components/notebook-controller/config/overlays/openshift/params.env
-            - components/odh-notebook-controller/config/base/params.env
-            - components/odh-notebook-controller/Makefile
-        labels: |
-            automated pr
-
     - name: pull-request (repo-sync)
       uses: repo-sync/pull-request@v2
       with:
@@ -100,4 +83,19 @@ jobs:
               - components/odh-notebook-controller/config/base/params.env
               - components/odh-notebook-controller/Makefile
 
+    - name: Create pull request (peter-evans)
+      uses: peter-evans/create-pull-request@v6
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        branch: ${{ env.TEMP_UPDATER_BRANCH }}
+        base: ${{ env.BRANCH_NAME }}
+        title: "[GHA] Update odh and notebook-controller with image 1.7-${{ steps.commit-id.outputs.COMMIT_ID }}"
+        body: |
+          :robot: This is an automated Pull Request created by `/.github/workflows/notebook-controller-images-updater.yaml`.
 
+          Have been updated the following related files:
+            - components/notebook-controller/config/overlays/openshift/params.env
+            - components/odh-notebook-controller/config/base/params.env
+            - components/odh-notebook-controller/Makefile
+        labels: |
+            automated pr
