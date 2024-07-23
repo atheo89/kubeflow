@@ -53,6 +53,7 @@ jobs:
         if [[ $(git status --porcelain | wc -l) -gt 0 ]]; then
           git fetch origin  ${{ env.TEMP_UPDATER_BRANCH }} && \
           git pull origin  ${{ env.TEMP_UPDATER_BRANCH }} && \
+          git status && \
           git add . && \
           git commit -m "Update odh and notebook-controller with image 1.7-$COMMIT_ID" && \
           git push origin  ${{ env.TEMP_UPDATER_BRANCH }}
