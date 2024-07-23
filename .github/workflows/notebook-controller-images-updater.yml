@@ -70,10 +70,10 @@ jobs:
 
     - name: Create Pull Request
       run: |
-          gh pr create --repo https://github.com/atheod89/kubeflow.git \
+          gh pr create --repo https://github.com/atheo89/kubeflow.git \
             --title "$pr_title" \
             --body "$pr_body" \
-            --head opendatahub-io:${{ env.TEMP_UPDATER_BRANCH }} \
+            --head atheo89:${{ env.TEMP_UPDATER_BRANCH }} \
             --base ${{ env.BRANCH_NAME }}
       env:
           pr_title: "[GHA] Update odh and notebook-controller with image 1.7-${{ steps.commit-id.outputs.COMMIT_ID }}"
