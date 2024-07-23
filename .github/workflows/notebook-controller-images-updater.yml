@@ -42,6 +42,9 @@ jobs:
       run: |
         git config --global user.name 'github-actions[bot]'
         git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+
+    - name: create branch,  modify files and push
+      run: |
         git checkout -b {{ env.TEMP_UPDATER_BRANCH }}
 
         COMMIT_ID=${{ steps.commit-id.outputs.COMMIT_ID }}
