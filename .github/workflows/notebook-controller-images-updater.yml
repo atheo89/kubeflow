@@ -1,5 +1,5 @@
 ---
-# Aim of the action
+# This is a gha updates automaticaly the notebook controller images. Can be run on demand before a new release
 name: Update Notebook Controller Images With Latest Commit ID
 on:  # yamllint disable-line rule:truthy
   workflow_dispatch:
