@@ -2,6 +2,9 @@
 # This is a gha updates automaticaly the notebook controller images. Can be run on demand before a new release
 name: Update Notebook Controller Images With Latest Commit ID
 on:  # yamllint disable-line rule:truthy
+  push:
+    branches:
+      - main  # Trigger the workflow on new commits to the main branch
   workflow_dispatch:
     inputs:
       branch-name:
@@ -16,7 +19,7 @@ env:
   REPO_OWNER: ${{ github.event.inputs.organization }}
   REPO_NAME: kubeflow
   TEMP_UPDATER_BRANCH: temp-${{ github.run_id }}
-  BRANCH_NAME: ${{ github.event.inputs.branch-name }}
+  BRANCH_NAME: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && 'main' || github.event.inputs.branch-name }}  # Use 'main' for push events or input for manual
 
 jobs:
   update-notebook-controller-images:
@@ -30,12 +33,6 @@ jobs:
       uses: actions/checkout@v4
       with:
         ref: ${{ env.BRANCH_NAME }}
-
-    - name: Checkout new branch
-      run: |
-       echo ${{ env.TEMP_UPDATER_BRANCH }}
-       git checkout -b ${{ env.TEMP_UPDATER_BRANCH }}
-       git push --set-upstream origin ${{ env.TEMP_UPDATER_BRANCH }}
 
     - name: Configure Git
       run: |
@@ -71,26 +68,40 @@ jobs:
         COMMIT_ID=${{ steps.commit-id.outputs.COMMIT_ID }}
         VERSION=${{ steps.version.outputs.VERSION }}
         echo "Updating files in VERSION=${VERSION} with COMMIT_ID=${COMMIT_ID}"
+
+        # Update the necessary files
         sed -E "s/(odh-kf-notebook-controller-image=quay\.io\/opendatahub\/kubeflow-notebook-controller:)[^: -]+(-)[^ ]+/\1$VERSION\2$COMMIT_ID/" -i components/notebook-controller/config/overlays/openshift/params.env
-        sed -E "s/(odh-notebook-controller-image=quay\.io\/opendatahub\/odh-notebook-controller:)[^: -]+(-)[^ ]+/\1$VERSION\2$COMMIT_ID/" -i  components/odh-notebook-controller/config/base/params.env
+        sed -E "s/(odh-notebook-controller-image=quay\.io\/opendatahub\/odh-notebook-controller:)[^: -]+(-)[^ ]+/\1$VERSION\2$COMMIT_ID/" -i components/odh-notebook-controller/config/base/params.env
         sed -E "s/(KF_TAG \?= )[^\-]+(-)[^ ]+/\1$VERSION\2$COMMIT_ID/" -i components/odh-notebook-controller/Makefile
 
         git status
         if [[ $(git status --porcelain | wc -l) -gt 0 ]]; then
           echo "Changes detected, committing and pushing..."
-          git fetch origin ${{ env.TEMP_UPDATER_BRANCH }}
-          git pull origin ${{ env.TEMP_UPDATER_BRANCH }}
-          git add components/notebook-controller/config/overlays/openshift/params.env
-          git add components/odh-notebook-controller/config/base/params.env
-          git add components/odh-notebook-controller/Makefile
-          git commit -m "Update odh and notebook-controller with image ${VERSION}-${COMMIT_ID}"
-          git push origin ${{ env.TEMP_UPDATER_BRANCH }}
-          git log --oneline
+          if [[ "${{ env.BRANCH_NAME }}" == "main" ]]; then
+            # Explicitly checkout main if we're on main branch
+            git checkout main
+            git add components/notebook-controller/config/overlays/openshift/params.env
+            git add components/odh-notebook-controller/config/base/params.env
+            git add components/odh-notebook-controller/Makefile
+            git commit -m "Update odh and notebook-controller with image ${VERSION}-${COMMIT_ID}"
+            git push origin main  # Push directly to main
+            git log --oneline
+          else
+            # If not on main, create and push to a temporary branch
+            git checkout -b ${{ env.TEMP_UPDATER_BRANCH }}
+            git add components/notebook-controller/config/overlays/openshift/params.env
+            git add components/odh-notebook-controller/config/base/params.env
+            git add components/odh-notebook-controller/Makefile
+            git commit -m "Update odh and notebook-controller with image ${VERSION}-${COMMIT_ID}"
+            git push --set-upstream origin ${{ env.TEMP_UPDATER_BRANCH }}
+            git log --oneline
+          fi
         else
           echo "There were no changes detected on ${{ env.BRANCH_NAME }}"
         fi
-        
+
     - name: Create Pull Request
+      if: github.event_name != 'push'  # Skip this step if the event is a push on main
       run: |
           gh pr create --repo https://github.com/$REPO_OWNER/$REPO_NAME.git \
             --title "$pr_title" \
