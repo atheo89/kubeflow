@@ -34,6 +34,31 @@ jobs:
           SYNC_BRANCH=sync__${{ github.event.inputs.source }}__${{ github.event.inputs.target }}__${TIMESTAMP}
           echo "branch=$SYNC_BRANCH" >> $GITHUB_OUTPUT
 
+      - name: Merge target branch into source branch, handle conflicts
+        run: |
+          git checkout -b ${{ steps.prepare.outputs.branch }} origin/${{ github.event.inputs.target }}
+          git merge --no-commit ${{ github.event.inputs.source }} || true
+
+          # Define the line pattern to preserve in the target branch
+          LINE_PATTERN="odh-notebook-controller-image=quay.io/opendatahub/odh-notebook-controller:1.9-*"  # e.g., "SPECIAL_VAR=.*"
+
+          # Check if params.env has conflicts
+          if git ls-files -u | grep "components/odh-notebook-controller/config/base/params.env"; then
+            # Resolve conflict by keeping the target branch's version for the specified line
+            TARGET_LINE=$(grep "$LINE_PATTERN" components/odh-notebook-controller/config/base/params.env) || true
+            
+            if [ -n "$TARGET_LINE" ]; then
+              # Use target branch's line
+              sed -i "s|$LINE_PATTERN|$TARGET_LINE|" params.env
+            fi
+
+            git add params.env
+          fi
+
+          # Commit the merge, resolving conflicts
+          git commit -m "Merge ${github.event.inputs.source} into ${github.event.inputs.target} with specified line preserved in params.env"
+
+
       - name: Create pull request
         uses: peter-evans/create-pull-request@5e914681df9dc83aa4e4905692ca88beb2f9e91f  # v7.0.5
         with:
