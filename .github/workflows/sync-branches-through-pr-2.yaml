@@ -45,23 +45,41 @@ jobs:
           git merge --no-commit origin/${{ github.event.inputs.source }} || true
 
           # Define the line pattern to preserve in the target branch
-          LINE_PATTERN="odh-notebook-controller-image=quay.io/opendatahub/odh-notebook-controller:1.9-*"  # e.g., "SPECIAL_VAR=.*"
+          line1="odh-notebook-controller-image=quay.io/opendatahub/odh-notebook-controller:1.9-*"  # e.g., "SPECIAL_VAR=.*"
+          line2="odh-kf-notebook-controller-image=quay.io/opendatahub/kubeflow-notebook-controller:1.9-**"  # e.g., "SPECIAL_VAR=.*"
+          line3="KF_TAG ?= 1.9-**"  # e.g., "SPECIAL_VAR=.*"
 
-          # Check if params.env has conflicts
-          if git ls-files -u | grep "components/notebook-controller/config/overlays/openshift/params.env"; then
-            # Resolve conflict by keeping the target branch's version for the specified line
-            TARGET_LINE=$(grep "$LINE_PATTERN" params.env) || true
-            
-            if [ -n "$TARGET_LINE" ]; then
-              # Use target branch's line
-              sed -i "s|$LINE_PATTERN|$TARGET_LINE|" components/notebook-controller/config/overlays/openshift/params.env
-            fi
 
-            git add components/notebook-controller/config/overlays/openshift/params.env
+          #components/odh-notebook-controller/Makefile
+          #components/odh-notebook-controller/config/base/params.env
+
+
+          # Resolve conflict by keeping the target branch's version for the specified line
+          TARGET_LINE1=$(grep "$line1" components/notebook-controller/config/overlays/openshift/params.env) ||  true
+          if [ -n "$TARGET_LINE1" ]; then
+            # Use target branch's line
+            sed -i "s|$LINE_PATTERN|$TARGET_LINE|" components/notebook-controller/config/overlays/openshift/params.env
           fi
+          git add components/notebook-controller/config/overlays/openshift/params.env
+
+          # Resolve conflict by keeping the target branch's version for the specified line
+          TARGET_LINE2=$(grep "$line1" components/notebook-controller/config/overlays/openshift/params.env) ||  true
+          if [ -n "$TARGET_LINE1" ]; then
+            # Use target branch's line
+            sed -i "s|$LINE_PATTERN|$TARGET_LINE|" components/notebook-controller/config/overlays/openshift/params.env
+          fi
+          git add components/notebook-controller/config/overlays/openshift/params.env
+
+            # Resolve conflict by keeping the target branch's version for the specified line
+          TARGET_LINE1=$(grep "$line1" components/notebook-controller/config/overlays/openshift/params.env) ||  true
+          if [ -n "$TARGET_LINE1" ]; then
+            # Use target branch's line
+            sed -i "s|$LINE_PATTERN|$TARGET_LINE|" components/notebook-controller/config/overlays/openshift/params.env
+          fi
+          git add components/notebook-controller/config/overlays/openshift/params.env
 
           # Commit the merge, resolving conflicts
-          git commit -m "Merge ${{ github.event.inputs.source }} into ${{ github.event.inputs.target }} with specified line preserved in params.env"
+          git commit -m "Merge ${{ github.event.inputs.source }} into ${{ github.event.inputs.target }} resolve conflicts"
 
       - name: Create pull request
         uses: peter-evans/create-pull-request@5e914681df9dc83aa4e4905692ca88beb2f9e91f  # v7.0.5
