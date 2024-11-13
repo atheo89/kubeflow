@@ -44,42 +44,38 @@ jobs:
           git checkout -b ${{ steps.prepare.outputs.branch }} origin/${{ github.event.inputs.target }}
           git merge --no-commit origin/${{ github.event.inputs.source }} || true
 
-          # Define the line pattern to preserve in the target branch
-          LINE_PATTERN1="odh-notebook-controller-image=quay.io/opendatahub/odh-notebook-controller:1.9-*" 
-          LINE_PATTERN2="odh-kf-notebook-controller-image=quay.io/opendatahub/kubeflow-notebook-controller:1.9-**"
-          LINE_PATTERN3="KF_TAG ?= 1.9-**"
+          # Define line patterns with regular expressions, omitting the changing part after "1.9-"
+          LINE_PATTERN1="odh-notebook-controller-image=quay.io/opendatahub/odh-notebook-controller:1.9-.*"
+          LINE_PATTERN2="odh-kf-notebook-controller-image=quay.io/opendatahub/kubeflow-notebook-controller:1.9-.*"
+          LINE_PATTERN3="KF_TAG ?= 1.9-.*"
 
+          # Resolve conflict by keeping the target branch's version for each specified line
 
-          #components/odh-notebook-controller/Makefile
-          #components/odh-notebook-controller/config/base/params.env
-
-
-          # Resolve conflict by keeping the target branch's version for the specified line
-          TARGET_LINE1=$(grep "$LINE_PATTERN1" components/notebook-controller/config/overlays/openshift/params.env) ||  true
+          # Handle the first pattern in params.env
+          TARGET_LINE1=$(grep -E "$LINE_PATTERN1" components/notebook-controller/config/overlays/openshift/params.env) || true
           if [ -n "$TARGET_LINE1" ]; then
-            # Use target branch's line
+            # Use the target branch's line for the matching pattern
             sed -i "s|$LINE_PATTERN1|$TARGET_LINE1|" components/notebook-controller/config/overlays/openshift/params.env
           fi
           git add components/notebook-controller/config/overlays/openshift/params.env
 
-          # Resolve conflict by keeping the target branch's version for the specified line
-          TARGET_LINE2=$(grep "$LINE_PATTERN2" components/odh-notebook-controller/config/base/params.env) ||  true
+          # Handle the second pattern in params.env
+          TARGET_LINE2=$(grep -E "$LINE_PATTERN2" components/odh-notebook-controller/config/base/params.env) || true
           if [ -n "$TARGET_LINE2" ]; then
-            # Use target branch's line
-            sed -i "s|$LINE_PATTERN2|$TARGET_LINE2|"  components/odh-notebook-controller/config/base/params.env
+            sed -i "s|$LINE_PATTERN2|$TARGET_LINE2|" components/odh-notebook-controller/config/base/params.env
           fi
-          git add components/notebook-controller/config/overlays/openshift/params.env
+          git add components/odh-notebook-controller/config/base/params.env
 
-            # Resolve conflict by keeping the target branch's version for the specified line
-          TARGET_LINE3=$(grep "$LINE_PATTERN3" components/odh-notebook-controller/Makefile) ||  true
+          # Handle the third pattern in the Makefile
+          TARGET_LINE3=$(grep -E "$LINE_PATTERN3" components/odh-notebook-controller/Makefile) || true
           if [ -n "$TARGET_LINE3" ]; then
-            # Use target branch's line
             sed -i "s|$LINE_PATTERN3|$TARGET_LINE3|" components/odh-notebook-controller/Makefile
           fi
           git add components/odh-notebook-controller/Makefile
 
           # Commit the merge, resolving conflicts
           git commit -m "Merge ${{ github.event.inputs.source }} into ${{ github.event.inputs.target }} resolve conflicts"
+
 
       - name: Create pull request
         uses: peter-evans/create-pull-request@5e914681df9dc83aa4e4905692ca88beb2f9e91f  # v7.0.5
