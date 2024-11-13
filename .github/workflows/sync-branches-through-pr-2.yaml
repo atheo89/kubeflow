@@ -44,40 +44,13 @@ jobs:
           # Create and switch to the sync branch from the target branch
           git checkout -b $SYNC_BRANCH origin/${{ github.event.inputs.target }}
           
+          # Merge the source branch into the sync branch using `theirs` strategy option to resolve conflicts
+          git merge -X theirs origin/${{ github.event.inputs.source }} || true
+          
           # Output the branch name to use it in later steps
           echo "branch=$SYNC_BRANCH" >> $GITHUB_OUTPUT
 
-      - name: Merge target branch into source branch, handle conflicts
-        run: |
-          # Merge the source branch into the sync branch (without committing yet)
-          git merge --no-commit origin/${{ github.event.inputs.source }} || true
 
-          # Define line patterns with regular expressions
-          LINE_PATTERN1="odh-notebook-controller-image=quay.io/opendatahub/odh-notebook-controller:1.9-.*"
-          LINE_PATTERN2="odh-kf-notebook-controller-image=quay.io/opendatahub/kubeflow-notebook-controller:1.9-.*"
-          LINE_PATTERN3="KF_TAG ?= 1.9-.*"
-
-          # Resolve conflicts by keeping the target branch’s version for each specified line
-          TARGET_LINE1=$(grep -E "$LINE_PATTERN1" components/notebook-controller/config/overlays/openshift/params.env) || true
-          if [ -n "$TARGET_LINE1" ]; then
-            sed -i "s|$LINE_PATTERN1|$TARGET_LINE1|" components/notebook-controller/config/overlays/openshift/params.env
-          fi
-          git add components/notebook-controller/config/overlays/openshift/params.env
-
-          TARGET_LINE2=$(grep -E "$LINE_PATTERN2" components/odh-notebook-controller/config/base/params.env) || true
-          if [ -n "$TARGET_LINE2" ]; then
-            sed -i "s|$LINE_PATTERN2|$TARGET_LINE2|" components/odh-notebook-controller/config/base/params.env
-          fi
-          git add components/odh-notebook-controller/config/base/params.env
-
-          TARGET_LINE3=$(grep -E "$LINE_PATTERN3" components/odh-notebook-controller/Makefile) || true
-          if [ -n "$TARGET_LINE3" ]; then
-            sed -i "s|$LINE_PATTERN3|$TARGET_LINE3|" components/odh-notebook-controller/Makefile
-          fi
-          git add components/odh-notebook-controller/Makefile
-
-          # Commit the merge, resolving conflicts
-          git commit -m "Merge ${{ github.event.inputs.source }} into ${{ github.event.inputs.target }} with conflict resolution"
 
       - name: Create pull request
         uses: peter-evans/create-pull-request@5e914681df9dc83aa4e4905692ca88beb2f9e91f  # v7.0.5
