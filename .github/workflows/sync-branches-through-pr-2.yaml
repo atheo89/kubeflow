@@ -47,8 +47,12 @@ jobs:
           # Merge the source branch into the sync branch using `theirs` strategy option to resolve conflicts
           git merge -X theirs origin/${{ github.event.inputs.source }} || true
           
+          # Push the sync branch to origin to ensure it exists on the remote
+          git push origin $SYNC_BRANCH
+          
           # Output the branch name to use it in later steps
           echo "branch=$SYNC_BRANCH" >> $GITHUB_OUTPUT
+
 
 
 
