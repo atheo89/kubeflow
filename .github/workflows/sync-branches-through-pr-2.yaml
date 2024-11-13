@@ -1,3 +1,4 @@
+---
 name: Sync branches through Pull Request
 
 on:  # yamllint disable-line rule:truthy
@@ -17,12 +18,7 @@ jobs:
       pull-requests: write
     runs-on: ubuntu-latest
     steps:
-      - name: Configure Git
-        run: |
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git config --global user.name "GitHub Actions"
-          
-      - name: Checkout target branch
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.inputs.target }}
@@ -31,35 +27,16 @@ jobs:
       - name: Prepare sync branch
         id: prepare
         run: |
-          # Fetch the latest from the source branch
           git fetch origin ${{ github.event.inputs.source }}
-          
-          # Reset the working directory to the source branch
           git reset --hard origin/${{ github.event.inputs.source }}
 
-          # Create a unique branch name for syncing
           TIMESTAMP=$(date +'%Y%m%d%H%M%S')
           SYNC_BRANCH=sync__${{ github.event.inputs.source }}__${{ github.event.inputs.target }}__${TIMESTAMP}
-          
-          # Create and switch to the sync branch from the target branch
-          git checkout -b $SYNC_BRANCH origin/${{ github.event.inputs.target }}
-          
-          # Merge the source branch into the sync branch using `theirs` strategy option to resolve conflicts
-          git merge -X theirs origin/${{ github.event.inputs.source }} || true
-          
-          # Push the sync branch to origin to ensure it exists on the remote
-          git push origin $SYNC_BRANCH
-          
-          # Output the branch name to use it in later steps
           echo "branch=$SYNC_BRANCH" >> $GITHUB_OUTPUT
-
-
-
 
       - name: Create pull request
         uses: peter-evans/create-pull-request@5e914681df9dc83aa4e4905692ca88beb2f9e91f  # v7.0.5
         with:
-          # Use the prepared sync branch for the PR
           branch: ${{ steps.prepare.outputs.branch }}
           title: "Sync `${{ github.event.inputs.target }}` branch with `${{ github.event.inputs.source }}` branch"
           body: |
@@ -68,4 +45,3 @@ jobs:
             It merges all commits from `${{ github.event.inputs.source }}` branch into `${{ github.event.inputs.target }}` branch.
 
             :warning: **IMPORTANT NOTE**: Remember to delete the `${{ steps.prepare.outputs.branch }}` branch after merging the changes.
-          base: ${{ github.event.inputs.target }}  # Ensuring the base is the target branch, different from the sync branch
