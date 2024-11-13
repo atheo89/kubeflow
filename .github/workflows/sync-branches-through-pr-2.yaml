@@ -1,4 +1,3 @@
----
 name: Sync branches through Pull Request
 
 on:  # yamllint disable-line rule:truthy
@@ -23,7 +22,7 @@ jobs:
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git config --global user.name "GitHub Actions"
           
-      - name: Checkout repository
+      - name: Checkout target branch
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.inputs.target }}
@@ -32,41 +31,45 @@ jobs:
       - name: Prepare sync branch
         id: prepare
         run: |
+          # Fetch the latest from the source branch
           git fetch origin ${{ github.event.inputs.source }}
+          
+          # Reset the working directory to the source branch
           git reset --hard origin/${{ github.event.inputs.source }}
 
+          # Create a unique branch name for syncing
           TIMESTAMP=$(date +'%Y%m%d%H%M%S')
           SYNC_BRANCH=sync__${{ github.event.inputs.source }}__${{ github.event.inputs.target }}__${TIMESTAMP}
+          
+          # Create and switch to the sync branch from the target branch
+          git checkout -b $SYNC_BRANCH origin/${{ github.event.inputs.target }}
+          
+          # Output the branch name to use it in later steps
           echo "branch=$SYNC_BRANCH" >> $GITHUB_OUTPUT
 
       - name: Merge target branch into source branch, handle conflicts
         run: |
-          git checkout -b ${{ steps.prepare.outputs.branch }} origin/${{ github.event.inputs.target }}
+          # Merge the source branch into the sync branch (without committing yet)
           git merge --no-commit origin/${{ github.event.inputs.source }} || true
 
-          # Define line patterns with regular expressions, omitting the changing part after "1.9-"
+          # Define line patterns with regular expressions
           LINE_PATTERN1="odh-notebook-controller-image=quay.io/opendatahub/odh-notebook-controller:1.9-.*"
           LINE_PATTERN2="odh-kf-notebook-controller-image=quay.io/opendatahub/kubeflow-notebook-controller:1.9-.*"
           LINE_PATTERN3="KF_TAG ?= 1.9-.*"
 
-          # Resolve conflict by keeping the target branch's version for each specified line
-
-          # Handle the first pattern in params.env
+          # Resolve conflicts by keeping the target branch’s version for each specified line
           TARGET_LINE1=$(grep -E "$LINE_PATTERN1" components/notebook-controller/config/overlays/openshift/params.env) || true
           if [ -n "$TARGET_LINE1" ]; then
-            # Use the target branch's line for the matching pattern
             sed -i "s|$LINE_PATTERN1|$TARGET_LINE1|" components/notebook-controller/config/overlays/openshift/params.env
           fi
           git add components/notebook-controller/config/overlays/openshift/params.env
 
-          # Handle the second pattern in params.env
           TARGET_LINE2=$(grep -E "$LINE_PATTERN2" components/odh-notebook-controller/config/base/params.env) || true
           if [ -n "$TARGET_LINE2" ]; then
             sed -i "s|$LINE_PATTERN2|$TARGET_LINE2|" components/odh-notebook-controller/config/base/params.env
           fi
           git add components/odh-notebook-controller/config/base/params.env
 
-          # Handle the third pattern in the Makefile
           TARGET_LINE3=$(grep -E "$LINE_PATTERN3" components/odh-notebook-controller/Makefile) || true
           if [ -n "$TARGET_LINE3" ]; then
             sed -i "s|$LINE_PATTERN3|$TARGET_LINE3|" components/odh-notebook-controller/Makefile
@@ -74,12 +77,12 @@ jobs:
           git add components/odh-notebook-controller/Makefile
 
           # Commit the merge, resolving conflicts
-          git commit -m "Merge ${{ github.event.inputs.source }} into ${{ github.event.inputs.target }} resolve conflicts"
-
+          git commit -m "Merge ${{ github.event.inputs.source }} into ${{ github.event.inputs.target }} with conflict resolution"
 
       - name: Create pull request
         uses: peter-evans/create-pull-request@5e914681df9dc83aa4e4905692ca88beb2f9e91f  # v7.0.5
         with:
+          # Use the prepared sync branch for the PR
           branch: ${{ steps.prepare.outputs.branch }}
           title: "Sync `${{ github.event.inputs.target }}` branch with `${{ github.event.inputs.source }}` branch"
           body: |
@@ -88,3 +91,4 @@ jobs:
             It merges all commits from `${{ github.event.inputs.source }}` branch into `${{ github.event.inputs.target }}` branch.
 
             :warning: **IMPORTANT NOTE**: Remember to delete the `${{ steps.prepare.outputs.branch }}` branch after merging the changes.
+          base: ${{ github.event.inputs.target }}  # Ensuring the base is the target branch, different from the sync branch
