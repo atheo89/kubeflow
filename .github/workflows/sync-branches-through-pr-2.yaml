@@ -55,7 +55,7 @@ jobs:
 
 
           # Resolve conflict by keeping the target branch's version for the specified line
-          TARGET_LINE1=$(grep "$line1" components/notebook-controller/config/overlays/openshift/params.env) ||  true
+          TARGET_LINE1=$(grep "$LINE_PATTERN1" components/notebook-controller/config/overlays/openshift/params.env) ||  true
           if [ -n "$TARGET_LINE1" ]; then
             # Use target branch's line
             sed -i "s|$LINE_PATTERN1|$TARGET_LINE1|" components/notebook-controller/config/overlays/openshift/params.env
@@ -71,12 +71,12 @@ jobs:
           git add components/notebook-controller/config/overlays/openshift/params.env
 
             # Resolve conflict by keeping the target branch's version for the specified line
-          TARGET_LINE1=$(grep "$LINE_PATTERN3" components/odh-notebook-controller/Makefile) ||  true
-          if [ -n "$TARGET_LINE1" ]; then
+          TARGET_LINE3=$(grep "$LINE_PATTERN3" components/odh-notebook-controller/Makefile) ||  true
+          if [ -n "$TARGET_LINE3" ]; then
             # Use target branch's line
-            sed -i "s|$LINE_PATTERN3|$TARGET_LINE3|"components/odh-notebook-controller/Makefile
+            sed -i "s|$LINE_PATTERN3|$TARGET_LINE3|" components/odh-notebook-controller/Makefile
           fi
-          git add omponents/odh-notebook-controller/Makefile
+          git add components/odh-notebook-controller/Makefile
 
           # Commit the merge, resolving conflicts
           git commit -m "Merge ${{ github.event.inputs.source }} into ${{ github.event.inputs.target }} resolve conflicts"
