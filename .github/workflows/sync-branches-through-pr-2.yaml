@@ -1,69 +1,80 @@
+---
 name: Sync Branches
 
-on:  # yamllint disable-line rule:truthy
+on:
   workflow_dispatch:
     inputs:
       source:
-        description: Source branch
+        description: "Source branch to sync from"
         required: true
+        type: string
       target:
-        description: Target branch
+        description: "Target branch to sync into"
         required: true
+        type: string
 
 jobs:
-  sync:
-    name: Sync branches
+  sync-branches:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout source branch
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
+    - name: Checkout repository
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0 # Ensure full history is fetched for merging
 
-      - name: Configure Git
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+    - name: Set up Git
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Fetch target branch
-        run: |
-          git fetch origin ${{ github.event.inputs.target }}:${{ github.event.inputs.target }}
+    - name: Merge source branch into target with conflict resolution
+      id: merge
+      run: |
+        set -e
+        SOURCE_BRANCH="${{ github.event.inputs.source }}"
+        TARGET_BRANCH="${{ github.event.inputs.target }}"
 
-      - name: Merge source into target
-        run: |
-          git checkout ${{ github.event.inputs.target }}
-          git merge --no-commit --no-ff ${{ github.event.inputs.source }} || true
+        # Fetch and checkout target branch
+        git fetch origin ${TARGET_BRANCH}:${TARGET_BRANCH}
+        git checkout ${TARGET_BRANCH}
 
-      - name: Resolve conflicts
-        run: |
-          # Resolve conflicts for specific files
-          sed -i 's|odh-kf-notebook-controller-image=.*|odh-kf-notebook-controller-image=quay.io/opendatahub/kubeflow-notebook-controller:1.9-adf190d|' components/notebook-controller/config/overlays/openshift/params.env
-          sed -i 's|KF_TAG \?=.*|KF_TAG ?= 1.9-adf190d|' components/odh-notebook-controller/Makefile
-          sed -i 's|odh-notebook-controller-image=.*|odh-notebook-controller-image=quay.io/opendatahub/odh-notebook-controller:1.9-adf190d|' components/odh-notebook-controller/config/base/params.env
-          
-          # Mark conflicts as resolved
-          git add components/notebook-controller/config/overlays/openshift/params.env
-          git add components/odh-notebook-controller/Makefile
-          git add components/odh-notebook-controller/config/base/params.env
-          
-          # Continue the merge
-          git commit -m "Sync ${{ github.event.inputs.source }} into ${{ github.event.inputs.target }} with resolved conflicts" || echo "No changes to commit"
+        # Merge source branch
+        git fetch origin ${SOURCE_BRANCH}:${SOURCE_BRANCH}
+        git merge --no-commit origin/${SOURCE_BRANCH} || true
+        
+        # Resolve conflicts for specific files
+        FILES=(
+          "components/notebook-controller/config/overlays/openshift/params.env"
+          "components/odh-notebook-controller/Makefile"
+          "components/odh-notebook-controller/config/base/params.env"
+        )
 
-      - name: Push changes
-        run: |
-          git push origin ${{ github.event.inputs.target }}
+        for FILE in "${FILES[@]}"; do
+          if [[ -f "$FILE" && "$(git status --porcelain=v1 2>/dev/null | grep -c "$FILE")" -gt 0 ]]; then
+            echo "Resolving conflict for $FILE by keeping target branch version."
+            git checkout --ours "$FILE"
+            git add "$FILE"
+          fi
+        done
 
-      - name: Create pull request
-        uses: peter-evans/create-pull-request@v5
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          source: ${{ github.event.inputs.target }}
-          base: ${{ github.event.inputs.source }}
-          title: "Sync ${{ github.event.inputs.source }} into ${{ github.event.inputs.target }}"
-          body: |
-            This pull request syncs the `${{ github.event.inputs.source }}` branch into the `${{ github.event.inputs.target }}` branch.
-            Conflicts were resolved in the following files:
-            - `components/notebook-controller/config/overlays/openshift/params.env`
-            - `components/odh-notebook-controller/Makefile`
-            - `components/odh-notebook-controller/config/base/params.env`
+        # Commit the merge changes
+        git commit -m "Merge ${SOURCE_BRANCH} into ${TARGET_BRANCH} with resolved conflicts" || echo "Nothing to commit"
+
+        # Create a new branch for the sync
+        TIMESTAMP=$(date +'%Y%m%d%H%M%S')
+        SYNC_BRANCH="sync__${SOURCE_BRANCH}__${TARGET_BRANCH}__${TIMESTAMP}"
+        git checkout -b $SYNC_BRANCH
+        git push origin $SYNC_BRANCH
+        echo "branch=$SYNC_BRANCH" >> $GITHUB_OUTPUT
+
+    - name: Create a Pull Request
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        SYNC_BRANCH=$(echo "${{ steps.merge.outputs.branch }}")
+        gh pr create \
+          --title "Sync ${SOURCE_BRANCH} into ${TARGET_BRANCH}" \
+          --body "This PR syncs ${SOURCE_BRANCH} into ${TARGET_BRANCH}, resolving specific conflicts." \
+          --base "${{ github.event.inputs.target }}" \
+          --head "${SYNC_BRANCH}"
