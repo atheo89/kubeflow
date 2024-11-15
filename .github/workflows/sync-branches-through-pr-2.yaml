@@ -30,36 +30,42 @@ jobs:
         run: |
           git fetch origin ${{ github.event.inputs.target }}:${{ github.event.inputs.target }}
 
-      - name: Merge source into target
+      - name: Create temporary branch for changes
         run: |
           git checkout ${{ github.event.inputs.target }}
+          git checkout -b sync-${{ github.event.inputs.source }}-to-${{ github.event.inputs.target }}
           git merge --no-commit --no-ff ${{ github.event.inputs.source }} || true
 
       - name: Resolve conflicts
         run: |
-          # Resolve conflicts for specific files
-          sed -i 's|odh-kf-notebook-controller-image=.*|odh-kf-notebook-controller-image=quay.io/opendatahub/kubeflow-notebook-controller:1.9-adf190d|' components/notebook-controller/config/overlays/openshift/params.env
-          sed -i 's|KF_TAG \?=.*|KF_TAG ?= 1.9-adf190d|' components/odh-notebook-controller/Makefile
-          sed -i 's|odh-notebook-controller-image=.*|odh-notebook-controller-image=quay.io/opendatahub/odh-notebook-controller:1.9-adf190d|' components/odh-notebook-controller/config/base/params.env
+          # Explicitly resolve conflicts for the specified files
+          echo "Resolving conflict in components/notebook-controller/config/overlays/openshift/params.env"
+          echo "odh-kf-notebook-controller-image=quay.io/opendatahub/kubeflow-notebook-controller:1.9-adf190d" > components/notebook-controller/config/overlays/openshift/params.env
+
+          echo "Resolving conflict in components/odh-notebook-controller/Makefile"
+          echo "KF_TAG ?= 1.9-adf190d" > components/odh-notebook-controller/Makefile
+
+          echo "Resolving conflict in components/odh-notebook-controller/config/base/params.env"
+          echo "odh-notebook-controller-image=quay.io/opendatahub/odh-notebook-controller:1.9-adf190d" > components/odh-notebook-controller/config/base/params.env
           
-          # Mark conflicts as resolved
+          # Mark the files as resolved
           git add components/notebook-controller/config/overlays/openshift/params.env
           git add components/odh-notebook-controller/Makefile
           git add components/odh-notebook-controller/config/base/params.env
           
           # Continue the merge
-          git commit -m "Sync ${{ github.event.inputs.source }} into ${{ github.event.inputs.target }} with resolved conflicts" || echo "No changes to commit"
+          git commit -m "Resolve conflicts for syncing ${{ github.event.inputs.source }} into ${{ github.event.inputs.target }}" || echo "No changes to commit"
 
-      - name: Push changes
+      - name: Push changes to a new branch
         run: |
-          git push origin ${{ github.event.inputs.target }}
+          git push origin sync-${{ github.event.inputs.source }}-to-${{ github.event.inputs.target }} --force
 
       - name: Create pull request
         uses: peter-evans/create-pull-request@v5
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          source: ${{ github.event.inputs.target }}
-          base: ${{ github.event.inputs.source }}
+          source: sync-${{ github.event.inputs.source }}-to-${{ github.event.inputs.target }}
+          base: ${{ github.event.inputs.target }}
           title: "Sync ${{ github.event.inputs.source }} into ${{ github.event.inputs.target }}"
           body: |
             This pull request syncs the `${{ github.event.inputs.source }}` branch into the `${{ github.event.inputs.target }}` branch.
@@ -67,3 +73,4 @@ jobs:
             - `components/notebook-controller/config/overlays/openshift/params.env`
             - `components/odh-notebook-controller/Makefile`
             - `components/odh-notebook-controller/config/base/params.env`
+          draft: false
