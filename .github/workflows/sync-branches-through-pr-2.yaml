@@ -61,7 +61,7 @@ jobs:
           echo "Resolving conflicts in $MAKEFILE while preserving KF_TAG."
 
           # Extract KF_TAG from the target branch
-          KF_TAG_TARGET=$(cat "$MAKEFILE" | grep -oP '^KF_TAG\s*=\s*\K.*' || echo "hhhhhhh")
+          KF_TAG_TARGET=$(git show :2:"$MAKEFILE" | grep -oP '^KF_TAG\s*=\s*\K.*' || echo "main")
 
           if [[ -z "$KF_TAG_TARGET" ]]; then
             echo "KF_TAG not found in target branch; using a fallback value."
