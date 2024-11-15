@@ -74,7 +74,7 @@ jobs:
       run: |
         SYNC_BRANCH=$(echo "${{ steps.merge.outputs.branch }}")
         gh pr create \
-          --title "Sync `${{ SOURCE_BRANCH }}` into `${{ TARGET_BRANCH }}`" \
+          --title "hhhjdfgh`" \
           --base "${{ github.event.inputs.target }}" \
           --head "${SYNC_BRANCH}" \
           --body: |
