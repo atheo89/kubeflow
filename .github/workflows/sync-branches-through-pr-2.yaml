@@ -5,11 +5,11 @@ on:
   workflow_dispatch:
     inputs:
       source:
-        description: "Source branch to sync from"
+        description: "Source branch: From"
         required: true
         type: string
       target:
-        description: "Target branch to sync into"
+        description: "Target branch: To"
         required: true
         type: string
 
