@@ -60,16 +60,19 @@ jobs:
         if [[ -f "$MAKEFILE" && "$(git status --porcelain=v1 2>/dev/null | grep -c "$MAKEFILE")" -gt 0 ]]; then
           echo "Resolving conflicts in $MAKEFILE while preserving KF_TAG."
 
-          # Extract the KF_TAG value from the target branch
+          # Extract the KF_TAG line from the target branch
           KF_TAG_TARGET=$(git show :2:"$MAKEFILE" | grep '^KF_TAG \?=' || echo "")
-          
+
           # Apply incoming changes
           git checkout --theirs "$MAKEFILE"
-          
-          # Restore the KF_TAG line from the target branch
+
+          # Remove any changes to the KF_TAG line
           if [[ -n "$KF_TAG_TARGET" ]]; then
             sed -i "s/^KF_TAG \?=.*/$KF_TAG_TARGET/" "$MAKEFILE"
           fi
+
+          # Ensure the KF_TAG line from the target branch remains intact
+          echo "Preserved KF_TAG as: $KF_TAG_TARGET"
 
           git add "$MAKEFILE"
         fi
