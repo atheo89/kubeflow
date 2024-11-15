@@ -60,15 +60,13 @@ jobs:
         if [[ -f "$MAKEFILE" && "$(git status --porcelain=v1 2>/dev/null | grep -c "$MAKEFILE")" -gt 0 ]]; then
           echo "Resolving conflicts in $MAKEFILE while preserving KF_TAG."
           
-          cat "$MAKEFILE"
-
           # Extract KF_TAG from the target branch
           KF_TAG_TARGET=$(cat "$MAKEFILE" | awk '
             BEGIN { in_head = 0 }
             /^<<<<<<< HEAD/ { in_head = 1; next }   # Enter HEAD block
             /^=======/ { in_head = 0 }             # Exit HEAD block
-            in_head && /^KF_TAG \?=/ { print $NF } # Extract KF_TAG value
-          ' || echo "main")
+            in_head && /^KF_TAG \?=/ { print $0 }  # Extract full line
+          ' || echo "KF_TAG ?= main")
 
 
           if [[ -z "$KF_TAG_TARGET" ]]; then
