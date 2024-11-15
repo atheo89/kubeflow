@@ -87,6 +87,7 @@ jobs:
         fi
 
 
+
         # Commit the merge changes
         git commit -m "Merge ${SOURCE_BRANCH} into ${TARGET_BRANCH} with resolved conflicts, preserving KF_TAG in Makefile" || echo "Nothing to commit"
 
