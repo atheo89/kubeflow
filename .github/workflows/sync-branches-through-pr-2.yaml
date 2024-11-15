@@ -63,7 +63,13 @@ jobs:
           cat "$MAKEFILE"
 
           # Extract KF_TAG from the target branch
-          KF_TAG_TARGET=$(cat "$MAKEFILE" | grep -oP '^KF_TAG\s*=\s*\K.*' || echo "main")
+          KF_TAG_TARGET=$(cat "$MAKEFILE" | awk '
+            BEGIN { in_head = 0 }
+            /^<<<<<<< HEAD/ { in_head = 1; next }   # Enter HEAD block
+            /^=======/ { in_head = 0 }             # Exit HEAD block
+            in_head && /^KF_TAG \?=/ { print $NF } # Extract KF_TAG value
+          ' || echo "main")
+
 
           if [[ -z "$KF_TAG_TARGET" ]]; then
             echo "KF_TAG not found in target branch; using a fallback value."
