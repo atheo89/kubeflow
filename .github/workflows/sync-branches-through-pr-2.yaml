@@ -1,0 +1,69 @@
+name: Sync Branches
+
+on:  # yamllint disable-line rule:truthy
+  workflow_dispatch:
+    inputs:
+      source:
+        description: Source branch
+        required: true
+      target:
+        description: Target branch
+        required: true
+
+jobs:
+  sync:
+    name: Sync branches
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source branch
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Fetch target branch
+        run: |
+          git fetch origin ${{ github.event.inputs.target }}:${{ github.event.inputs.target }}
+
+      - name: Merge source into target
+        run: |
+          git checkout ${{ github.event.inputs.target }}
+          git merge --no-commit --no-ff ${{ github.event.inputs.source }} || true
+
+      - name: Resolve conflicts
+        run: |
+          # Resolve conflicts for specific files
+          sed -i 's|odh-kf-notebook-controller-image=.*|odh-kf-notebook-controller-image=quay.io/opendatahub/kubeflow-notebook-controller:1.9-adf190d|' components/notebook-controller/config/overlays/openshift/params.env
+          sed -i 's|KF_TAG \?=.*|KF_TAG ?= 1.9-adf190d|' components/odh-notebook-controller/Makefile
+          sed -i 's|odh-notebook-controller-image=.*|odh-notebook-controller-image=quay.io/opendatahub/odh-notebook-controller:1.9-adf190d|' components/odh-notebook-controller/config/base/params.env
+          
+          # Mark conflicts as resolved
+          git add components/notebook-controller/config/overlays/openshift/params.env
+          git add components/odh-notebook-controller/Makefile
+          git add components/odh-notebook-controller/config/base/params.env
+          
+          # Continue the merge
+          git commit -m "Sync ${{ github.event.inputs.source }} into ${{ github.event.inputs.target }} with resolved conflicts" || echo "No changes to commit"
+
+      - name: Push changes
+        run: |
+          git push origin ${{ github.event.inputs.target }}
+
+      - name: Create pull request
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          source: ${{ github.event.inputs.target }}
+          base: ${{ github.event.inputs.source }}
+          title: "Sync ${{ github.event.inputs.source }} into ${{ github.event.inputs.target }}"
+          body: |
+            This pull request syncs the `${{ github.event.inputs.source }}` branch into the `${{ github.event.inputs.target }}` branch.
+            Conflicts were resolved in the following files:
+            - `components/notebook-controller/config/overlays/openshift/params.env`
+            - `components/odh-notebook-controller/Makefile`
+            - `components/odh-notebook-controller/config/base/params.env`

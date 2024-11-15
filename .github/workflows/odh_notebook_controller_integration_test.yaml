@@ -136,7 +136,7 @@ jobs:
           kustomize edit set image ${CURRENT_NOTEBOOK_IMG}=${PR_NOTEBOOK_IMG}
 
           # configure culler
-          cat <<EOF | oc apply -f -
+          cat <<EOF | kubectl apply -f -
           ---
           apiVersion: v1
           kind: ConfigMap
@@ -169,7 +169,7 @@ jobs:
 
           echo "odh-notebook-controller-image=localhost/${{env.IMG}}:${{env.TAG}}" > params.env
 
-          cat <<EOF | oc apply -f -
+          cat <<EOF | kubectl apply -f -
           ---
           apiVersion: v1
           kind: ConfigMap
@@ -225,7 +225,7 @@ jobs:
       - name: Create notebook and check it, this is from kubeflow readme
         run: |
           notebook_namespace=default
-          cat <<EOF | oc apply -f -
+          cat <<EOF | kubectl apply -f -
           ---
           apiVersion: kubeflow.org/v1
           kind: Notebook
@@ -271,6 +271,8 @@ jobs:
                         port: notebook-port
           EOF
 
+          # wait for the statefulset to be created
+          timeout 100 bash -c -- 'until kubectl get statefulset minimal-notebook; do sleep 1; done'
           # wait for the good result
           kubectl rollout status --watch statefulset minimal-notebook
           kubectl wait statefulset minimal-notebook --for=jsonpath='{.spec.replicas}'=1 --timeout=100s

@@ -5,6 +5,10 @@
 
 **Fixed bugs:**
 
+
+
+
+
 - kfctl apply failed for invalid spec.version when installing CRD tfjobs.kubeflow.org [\#2634](https://github.com/kubeflow/kubeflow/issues/2634)
 - Wrong service account is used if a project ID has a prefix for its org [\#2244](https://github.com/kubeflow/kubeflow/issues/2244)
 - PytorchJob & operator not installed by kfctl in for non GCP platforms in 0.4 [\#2212](https://github.com/kubeflow/kubeflow/issues/2212)
