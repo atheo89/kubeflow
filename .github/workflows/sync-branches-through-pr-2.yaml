@@ -28,7 +28,7 @@ jobs:
         git config user.name "github-actions[bot]"
         git config user.email "github-actions[bot]@users.noreply.github.com"
 
-        - name: Merge source branch into target with conflict resolution
+    - name: Merge source branch into target with conflict resolution
       id: merge
       run: |
         set -e
