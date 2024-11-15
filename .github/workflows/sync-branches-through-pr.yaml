@@ -1,4 +1,4 @@
-name: Sync branches through Pull Request
+name: Sync Branches
 
 on:  # yamllint disable-line rule:truthy
   workflow_dispatch:
@@ -12,65 +12,65 @@ on:  # yamllint disable-line rule:truthy
 
 jobs:
   sync:
-    permissions:
-      contents: write
-      pull-requests: write
+    name: Sync branches
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - name: Checkout source branch
+        uses: actions/checkout@v3
         with:
-          ref: ${{ github.event.inputs.target }}
           fetch-depth: 0
 
-      - name: Prepare sync branch
-        id: prepare
+      - name: Configure Git
         run: |
-          git fetch origin ${{ github.event.inputs.source }}
-          git reset --hard origin/${{ github.event.inputs.source }}
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          TIMESTAMP=$(date +'%Y%m%d%H%M%S')
-          SYNC_BRANCH=sync__${{ github.event.inputs.source }}__${{ github.event.inputs.target }}__${TIMESTAMP}
-          echo "branch=$SYNC_BRANCH" >> $GITHUB_OUTPUT
+      - name: Fetch target branch
+        run: |
+          git fetch origin ${{ github.event.inputs.target }}:${{ github.event.inputs.target }}
 
-      - name: Attempt merge
-        id: merge
+      - name: Create temporary branch for changes
         run: |
           git checkout ${{ github.event.inputs.target }}
-          git merge ${{ github.event.inputs.source }} || echo "Conflicts detected but will be resolved"
+          git checkout -b sync-${{ github.event.inputs.source }}-to-${{ github.event.inputs.target }}
+          git merge --no-commit --no-ff ${{ github.event.inputs.source }} || true
 
-      - name: Resolve conflicts in specific files
-        if: ${{ failure() }}  # Only run this if the merge step fails
+      - name: Resolve conflicts
         run: |
-          # Resolve known conflicts
-          # 1. Resolve 'components/notebook-controller/config/overlays/openshift/params.env'
-          sed -i '/^odh-kf-notebook-controller-image=/c\odh-kf-notebook-controller-image=quay.io/opendatahub/kubeflow-notebook-controller:incoming' components/notebook-controller/config/overlays/openshift/params.env
+          # Explicitly resolve conflicts for the specified files
+          echo "Resolving conflict in components/notebook-controller/config/overlays/openshift/params.env"
+          echo "odh-kf-notebook-controller-image=quay.io/opendatahub/kubeflow-notebook-controller:1.9-adf190d" > components/notebook-controller/config/overlays/openshift/params.env
 
-          # 2. Resolve 'components/odh-notebook-controller/Makefile'
-          sed -i '/^KF_TAG ?=/c\KF_TAG ?= incoming' components/odh-notebook-controller/Makefile
+          echo "Resolving conflict in components/odh-notebook-controller/Makefile"
+          echo "KF_TAG ?= 1.9-adf190d" > components/odh-notebook-controller/Makefile
 
-          # 3. Resolve 'components/odh-notebook-controller/config/base/params.env'
-          sed -i '/^odh-notebook-controller-image=/c\odh-notebook-controller-image=quay.io/opendatahub/odh-notebook-controller:incoming' components/odh-notebook-controller/config/base/params.env
+          echo "Resolving conflict in components/odh-notebook-controller/config/base/params.env"
+          echo "odh-notebook-controller-image=quay.io/opendatahub/odh-notebook-controller:1.9-adf190d" > components/odh-notebook-controller/config/base/params.env
+          
+          # Mark the files as resolved
+          git add components/notebook-controller/config/overlays/openshift/params.env
+          git add components/odh-notebook-controller/Makefile
+          git add components/odh-notebook-controller/config/base/params.env
+          
+          # Continue the merge
+          git commit -m "Resolve conflicts for syncing ${{ github.event.inputs.source }} into ${{ github.event.inputs.target }}" || echo "No changes to commit"
 
-          # Mark conflicts as resolved
-          git add components/notebook-controller/config/overlays/openshift/params.env \
-                  components/odh-notebook-controller/Makefile \
-                  components/odh-notebook-controller/config/base/params.env
-          git commit -m "Automatically resolved known conflicts"
-
-      - name: Push resolved sync branch
+      - name: Push changes to a new branch
         run: |
-          git checkout -b ${{ steps.prepare.outputs.branch }}
-          git push origin ${{ steps.prepare.outputs.branch }}
+          git push origin sync-${{ github.event.inputs.source }}-to-${{ github.event.inputs.target }} --force
 
       - name: Create pull request
-        uses: peter-evans/create-pull-request@5e914681df9dc83aa4e4905692ca88beb2f9e91f  # v7.0.5
+        uses: peter-evans/create-pull-request@v5
         with:
-          branch: ${{ steps.prepare.outputs.branch }}
-          title: "Sync `${{ github.event.inputs.target }}` branch with `${{ github.event.inputs.source }}` branch"
+          token: ${{ secrets.GITHUB_TOKEN }}
+          source: sync-${{ github.event.inputs.source }}-to-${{ github.event.inputs.target }}
+          base: ${{ github.event.inputs.target }}
+          title: "Sync ${{ github.event.inputs.source }} into ${{ github.event.inputs.target }}"
           body: |
-            :robot: This is an automated Pull Request created by `/.github/workflows/sync-branches-through-pr.yml`.
-
-            It merges all commits from `${{ github.event.inputs.source }}` branch into `${{ github.event.inputs.target }}` branch.
-
-            :warning: **IMPORTANT NOTE**: Remember to delete the `${{ steps.prepare.outputs.branch }}` branch after merging the changes.
+            This pull request syncs the `${{ github.event.inputs.source }}` branch into the `${{ github.event.inputs.target }}` branch.
+            Conflicts were resolved in the following files:
+            - `components/notebook-controller/config/overlays/openshift/params.env`
+            - `components/odh-notebook-controller/Makefile`
+            - `components/odh-notebook-controller/config/base/params.env`
+          draft: false
