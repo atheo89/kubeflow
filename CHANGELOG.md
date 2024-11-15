@@ -1,6 +1,6 @@
 # Change Log
 
-## [v0.5.0-rc.0](https://github.com/kubeflow/kubeflow/tree/v0.5.0-rc.0) (2019-03-28)
+## [v0.8888888888.0-rc.0](https://github.com/kubeflow/kubeflow/tree/v0.5.0-rc.0) (2019-03-28)
 [Full Changelog](https://github.com/kubeflow/kubeflow/compare/v0.4.1-rc.4...v0.5.0-rc.0)
 
 **Fixed bugs:**
