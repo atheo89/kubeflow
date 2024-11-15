@@ -1,4 +1,3 @@
----
 name: Sync branches through Pull Request
 
 on:  # yamllint disable-line rule:truthy
@@ -33,6 +32,36 @@ jobs:
           TIMESTAMP=$(date +'%Y%m%d%H%M%S')
           SYNC_BRANCH=sync__${{ github.event.inputs.source }}__${{ github.event.inputs.target }}__${TIMESTAMP}
           echo "branch=$SYNC_BRANCH" >> $GITHUB_OUTPUT
+
+      - name: Attempt merge
+        id: merge
+        run: |
+          git checkout ${{ github.event.inputs.target }}
+          git merge ${{ github.event.inputs.source }} || echo "Conflicts detected but will be resolved"
+
+      - name: Resolve conflicts in specific files
+        if: ${{ failure() }}  # Only run this if the merge step fails
+        run: |
+          # Resolve known conflicts
+          # 1. Resolve 'components/notebook-controller/config/overlays/openshift/params.env'
+          sed -i '/^odh-kf-notebook-controller-image=/c\odh-kf-notebook-controller-image=quay.io/opendatahub/kubeflow-notebook-controller:incoming' components/notebook-controller/config/overlays/openshift/params.env
+
+          # 2. Resolve 'components/odh-notebook-controller/Makefile'
+          sed -i '/^KF_TAG ?=/c\KF_TAG ?= incoming' components/odh-notebook-controller/Makefile
+
+          # 3. Resolve 'components/odh-notebook-controller/config/base/params.env'
+          sed -i '/^odh-notebook-controller-image=/c\odh-notebook-controller-image=quay.io/opendatahub/odh-notebook-controller:incoming' components/odh-notebook-controller/config/base/params.env
+
+          # Mark conflicts as resolved
+          git add components/notebook-controller/config/overlays/openshift/params.env \
+                  components/odh-notebook-controller/Makefile \
+                  components/odh-notebook-controller/config/base/params.env
+          git commit -m "Automatically resolved known conflicts"
+
+      - name: Push resolved sync branch
+        run: |
+          git checkout -b ${{ steps.prepare.outputs.branch }}
+          git push origin ${{ steps.prepare.outputs.branch }}
 
       - name: Create pull request
         uses: peter-evans/create-pull-request@5e914681df9dc83aa4e4905692ca88beb2f9e91f  # v7.0.5
