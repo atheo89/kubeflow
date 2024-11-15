@@ -63,22 +63,25 @@ jobs:
           # Extract the KF_TAG line from the target branch
           KF_TAG_TARGET=$(git show :2:"$MAKEFILE" | grep '^KF_TAG \?=' || echo "")
 
-          # Apply incoming changes
+          # Apply incoming changes but exclude KF_TAG
+          TMP_MAKEFILE=$(mktemp)
           git checkout --theirs "$MAKEFILE"
+          grep -v '^KF_TAG \?=' "$MAKEFILE" > "$TMP_MAKEFILE"
 
-          # Remove any changes to the KF_TAG line
+          # Add the preserved KF_TAG line from the target branch
           if [[ -n "$KF_TAG_TARGET" ]]; then
-            sed -i "s/^KF_TAG \?=.*/$KF_TAG_TARGET/" "$MAKEFILE"
+            echo "$KF_TAG_TARGET" >> "$TMP_MAKEFILE"
           fi
 
-          # Ensure the KF_TAG line from the target branch remains intact
+          # Replace the original Makefile with the modified version
+          mv "$TMP_MAKEFILE" "$MAKEFILE"
           echo "Preserved KF_TAG as: $KF_TAG_TARGET"
 
           git add "$MAKEFILE"
         fi
 
         # Commit the merge changes
-        git commit -m "Merge ${SOURCE_BRANCH} into ${TARGET_BRANCH} with resolved conflicts" || echo "Nothing to commit"
+        git commit -m "Merge ${SOURCE_BRANCH} into ${TARGET_BRANCH} with resolved conflicts, preserving KF_TAG in Makefile" || echo "Nothing to commit"
 
         # Create a new branch for the sync
         TIMESTAMP=$(date +'%Y%m%d%H%M%S')
@@ -86,6 +89,7 @@ jobs:
         git checkout -b $SYNC_BRANCH
         git push origin $SYNC_BRANCH
         echo "branch=$SYNC_BRANCH" >> $GITHUB_OUTPUT
+
 
     - name: Create a Pull Request
       env:
