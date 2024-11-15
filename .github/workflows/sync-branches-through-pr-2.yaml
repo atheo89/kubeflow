@@ -77,7 +77,7 @@ jobs:
           --title "Sync `${{ SOURCE_BRANCH }}` into `${{ TARGET_BRANCH }}`" \
           --base "${{ github.event.inputs.target }}" \
           --head "${SYNC_BRANCH}" \
-          -- body: |
+          --body: |
             :robot: This is an automated Pull Request created by `/.github/workflows/sync-branches-through-pr.yml`.
 
             It merges all commits from `${{ github.event.inputs.source }}` branch into `${{ github.event.inputs.target }}` branch.
