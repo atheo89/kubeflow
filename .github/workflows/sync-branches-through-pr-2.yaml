@@ -55,27 +55,30 @@ jobs:
           fi
         done
 
-        # Handle the Makefile
+        # Handle the Makefile manually
         MAKEFILE="components/odh-notebook-controller/Makefile"
         if [[ -f "$MAKEFILE" && "$(git status --porcelain=v1 2>/dev/null | grep -c "$MAKEFILE")" -gt 0 ]]; then
           echo "Resolving conflicts in $MAKEFILE while preserving KF_TAG."
 
-          # Extract conflicting version of the Makefile
-          git checkout --theirs "$MAKEFILE" -m
-
-          # Extract the KF_TAG line from the target branch
+          # Extract KF_TAG from the target branch
           KF_TAG_TARGET=$(git show :2:"$MAKEFILE" | grep '^KF_TAG \?=' || echo "")
 
-          # Construct a new Makefile while ignoring changes to KF_TAG
+          # Process the conflicting Makefile
           awk -v kf_tag="$KF_TAG_TARGET" '
-            /^KF_TAG \?=/ { print kf_tag; next } # Replace KF_TAG line with target branch version
-            { print $0 }                        # Print all other lines
+            BEGIN { conflict = 0 }
+            /^<<<<<<< / { conflict = 1; next }      # Start of conflict
+            /^=======/ { conflict = 2; next }      # Separator in conflict
+            /^>>>>>>> / { conflict = 0; next }     # End of conflict
+            conflict == 1 && /^KF_TAG \?=/ { next } # Ignore incoming KF_TAG
+            conflict == 2 && /^KF_TAG \?=/ { print kf_tag; next } # Use target KF_TAG
+            { print $0 }                           # Print other lines
           ' "$MAKEFILE" > "$MAKEFILE.new"
 
-          # Replace original Makefile with updated version
+          # Replace original Makefile with resolved version
           mv "$MAKEFILE.new" "$MAKEFILE"
+          echo "Preserved KF_TAG as: $KF_TAG_TARGET"
 
-          # Stage the updated Makefile
+          # Stage the resolved Makefile
           git add "$MAKEFILE"
         fi
 
@@ -88,7 +91,6 @@ jobs:
         git checkout -b $SYNC_BRANCH
         git push origin $SYNC_BRANCH
         echo "branch=$SYNC_BRANCH" >> $GITHUB_OUTPUT
-
 
     - name: Create a Pull Request
       env:
