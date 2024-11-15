@@ -6,6 +6,8 @@ TAG ?= $(shell git describe --tags --always)
 KF_IMG ?= quay.io/opendatahub/kubeflow-notebook-controller
 KF_TAG ?= main-3f93781d2
 
+#checkkk
+
 CONTAINER_ENGINE ?= podman
 
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
