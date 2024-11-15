@@ -35,18 +35,15 @@ jobs:
         SOURCE_BRANCH="${{ github.event.inputs.source }}"
         TARGET_BRANCH="${{ github.event.inputs.target }}"
 
-        # Fetch and checkout target branch
         git fetch origin ${TARGET_BRANCH}:${TARGET_BRANCH}
         git checkout ${TARGET_BRANCH}
 
-        # Merge source branch
         git fetch origin ${SOURCE_BRANCH}:${SOURCE_BRANCH}
         git merge --no-commit origin/${SOURCE_BRANCH} || true
-        
+
         # Resolve conflicts for specific files
         FILES=(
           "components/notebook-controller/config/overlays/openshift/params.env"
-          "components/odh-notebook-controller/Makefile"
           "components/odh-notebook-controller/config/base/params.env"
         )
 
@@ -58,8 +55,21 @@ jobs:
           fi
         done
 
+        # Special handling for the Makefile
+        MAKEFILE="components/odh-notebook-controller/Makefile"
+        if [[ -f "$MAKEFILE" && "$(git status --porcelain=v1 2>/dev/null | grep -c "$MAKEFILE")" -gt 0 ]]; then
+          if git diff --ours "$MAKEFILE" | grep -q 'KF_TAG \?='; then
+            echo "Change in Makefile is limited to KF_TAG. Keeping target branch version."
+            git checkout --ours "$MAKEFILE"
+          else
+            echo "Changes in Makefile are not limited to KF_TAG. Applying incoming changes."
+            git checkout --theirs "$MAKEFILE"
+          fi
+          git add "$MAKEFILE"
+        fi
+
         # Commit the merge changes
-        git commit -m ":robot: Merge ${SOURCE_BRANCH} into ${TARGET_BRANCH}" || echo "Nothing to commit"
+        git commit -m "Merge ${SOURCE_BRANCH} into ${TARGET_BRANCH} with resolved conflicts" || echo "Nothing to commit"
 
         # Create a new branch for the sync
         TIMESTAMP=$(date +'%Y%m%d%H%M%S')
