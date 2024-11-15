@@ -28,7 +28,7 @@ jobs:
         git config user.name "github-actions[bot]"
         git config user.email "github-actions[bot]@users.noreply.github.com"
 
-    - name: Merge source branch into target with conflict resolution
+        - name: Merge source branch into target with conflict resolution
       id: merge
       run: |
         set -e
@@ -55,28 +55,27 @@ jobs:
           fi
         done
 
-        # Special handling for the Makefile
+        # Handle the Makefile
         MAKEFILE="components/odh-notebook-controller/Makefile"
         if [[ -f "$MAKEFILE" && "$(git status --porcelain=v1 2>/dev/null | grep -c "$MAKEFILE")" -gt 0 ]]; then
           echo "Resolving conflicts in $MAKEFILE while preserving KF_TAG."
 
+          # Extract conflicting version of the Makefile
+          git checkout --theirs "$MAKEFILE" -m
+
           # Extract the KF_TAG line from the target branch
           KF_TAG_TARGET=$(git show :2:"$MAKEFILE" | grep '^KF_TAG \?=' || echo "")
 
-          # Apply incoming changes but exclude KF_TAG
-          TMP_MAKEFILE=$(mktemp)
-          git checkout --theirs "$MAKEFILE"
-          grep -v '^KF_TAG \?=' "$MAKEFILE" > "$TMP_MAKEFILE"
+          # Construct a new Makefile while ignoring changes to KF_TAG
+          awk -v kf_tag="$KF_TAG_TARGET" '
+            /^KF_TAG \?=/ { print kf_tag; next } # Replace KF_TAG line with target branch version
+            { print $0 }                        # Print all other lines
+          ' "$MAKEFILE" > "$MAKEFILE.new"
 
-          # Add the preserved KF_TAG line from the target branch
-          if [[ -n "$KF_TAG_TARGET" ]]; then
-            echo "$KF_TAG_TARGET" >> "$TMP_MAKEFILE"
-          fi
+          # Replace original Makefile with updated version
+          mv "$MAKEFILE.new" "$MAKEFILE"
 
-          # Replace the original Makefile with the modified version
-          mv "$TMP_MAKEFILE" "$MAKEFILE"
-          echo "Preserved KF_TAG as: $KF_TAG_TARGET"
-
+          # Stage the updated Makefile
           git add "$MAKEFILE"
         fi
 
