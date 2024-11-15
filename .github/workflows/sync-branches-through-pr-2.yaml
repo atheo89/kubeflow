@@ -1,78 +1,80 @@
-name: Sync branches through Pull Request
+---
+name: Sync Branches
 
 on:
   workflow_dispatch:
     inputs:
       source:
-        description: Source branch
+        description: "Source branch to sync from"
         required: true
+        type: string
       target:
-        description: Target branch
+        description: "Target branch to sync into"
         required: true
+        type: string
 
 jobs:
-  sync:
-    permissions:
-      contents: write
-      pull-requests: write
+  sync-branches:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.inputs.target }}
-          fetch-depth: 0
+    - name: Checkout repository
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0 # Ensure full history is fetched for merging
 
-      - name: Configure Git
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+    - name: Set up Git
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Fetch source branch
-        run: git fetch origin ${{ github.event.inputs.source }}
+    - name: Merge source branch into target with conflict resolution
+      id: merge
+      run: |
+        set -e
+        SOURCE_BRANCH="${{ github.event.inputs.source }}"
+        TARGET_BRANCH="${{ github.event.inputs.target }}"
 
-      - name: Merge source branch into target
-        id: merge
-        run: |
-          set -e
-          SOURCE_BRANCH="${{ github.event.inputs.source }}"
-          TARGET_BRANCH="${{ github.event.inputs.target }}"
+        # Fetch and checkout target branch
+        git fetch origin ${TARGET_BRANCH}:${TARGET_BRANCH}
+        git checkout ${TARGET_BRANCH}
 
-          git merge --no-commit origin/${SOURCE_BRANCH} || true
-          
-          # Resolve conflicts for the specific files
-          FILES=(
-            "components/notebook-controller/config/overlays/openshift/params.env"
-            "components/odh-notebook-controller/Makefile"
-            "components/odh-notebook-controller/config/base/params.env"
-          )
+        # Merge source branch
+        git fetch origin ${SOURCE_BRANCH}:${SOURCE_BRANCH}
+        git merge --no-commit origin/${SOURCE_BRANCH} || true
+        
+        # Resolve conflicts for specific files
+        FILES=(
+          "components/notebook-controller/config/overlays/openshift/params.env"
+          "components/odh-notebook-controller/Makefile"
+          "components/odh-notebook-controller/config/base/params.env"
+        )
 
-          for FILE in "${FILES[@]}"; do
-            if [[ -f "$FILE" && "$(git status --porcelain=v1 2>/dev/null | grep -c "$FILE")" -gt 0 ]]; then
-              echo "Resolving conflict for $FILE by keeping target branch version."
-              git checkout --ours "$FILE"
-              git add "$FILE"
-            fi
-          done
+        for FILE in "${FILES[@]}"; do
+          if [[ -f "$FILE" && "$(git status --porcelain=v1 2>/dev/null | grep -c "$FILE")" -gt 0 ]]; then
+            echo "Resolving conflict for $FILE by keeping target branch version."
+            git checkout --ours "$FILE"
+            git add "$FILE"
+          fi
+        done
 
-          # Commit merge changes
-          git commit -m "Merge ${SOURCE_BRANCH} into ${TARGET_BRANCH} with resolved conflicts" || echo "Nothing to commit"
+        # Commit the merge changes
+        git commit -m "Merge ${SOURCE_BRANCH} into ${TARGET_BRANCH} with resolved conflicts" || echo "Nothing to commit"
 
-          TIMESTAMP=$(date +'%Y%m%d%H%M%S')
-          SYNC_BRANCH="sync__${SOURCE_BRANCH}__${TARGET_BRANCH}__${TIMESTAMP}"
-          echo "branch=$SYNC_BRANCH" >> $GITHUB_OUTPUT
-          git checkout -b $SYNC_BRANCH
-          git push origin $SYNC_BRANCH
+        # Create a new branch for the sync
+        TIMESTAMP=$(date +'%Y%m%d%H%M%S')
+        SYNC_BRANCH="sync__${SOURCE_BRANCH}__${TARGET_BRANCH}__${TIMESTAMP}"
+        git checkout -b $SYNC_BRANCH
+        git push origin $SYNC_BRANCH
+        echo "branch=$SYNC_BRANCH" >> $GITHUB_OUTPUT
 
-      - name: Create pull request
-        uses: peter-evans/create-pull-request@v7.0.5
-        with:
-          base: ${{ github.event.inputs.target }}
-          branch: ${{ steps.merge.outputs.branch }}
-          title: "Sync `${{ github.event.inputs.target }}` branch with `${{ github.event.inputs.source }}` branch"
-          body: |
-            :robot: This is an automated Pull Request created by `/.github/workflows/sync-branches-through-pr.yml`.
-
-            It merges all commits from `${{ github.event.inputs.source }}` branch into `${{ github.event.inputs.target }}` branch.
-
-            :warning: **IMPORTANT NOTE**: Remember to delete the `${{ steps.merge.outputs.branch }}` branch after merging the changes.
+    - name: Create a Pull Request
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        SYNC_BRANCH=$(echo "${{ steps.merge.outputs.branch }}")
+        gh pr create \
+          --title "Sync ${SOURCE_BRANCH} into ${TARGET_BRANCH}" \
+          --body "This PR syncs ${SOURCE_BRANCH} into ${TARGET_BRANCH}, resolving specific conflicts." \
+          --base "${{ github.event.inputs.target }}" \
+          --head "${SYNC_BRANCH}"
