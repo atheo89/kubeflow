@@ -74,7 +74,12 @@ jobs:
       run: |
         SYNC_BRANCH=$(echo "${{ steps.merge.outputs.branch }}")
         gh pr create \
-          --title "Sync ${SOURCE_BRANCH} into ${TARGET_BRANCH}" \
-          --body "This PR syncs ${SOURCE_BRANCH} into ${TARGET_BRANCH}, resolving specific conflicts." \
+          --title "Sync `${{ SOURCE_BRANCH }}` into `${{ TARGET_BRANCH }}`" \
           --base "${{ github.event.inputs.target }}" \
-          --head "${SYNC_BRANCH}"
+          --head "${SYNC_BRANCH}" \
+          -- body: |
+            :robot: This is an automated Pull Request created by `/.github/workflows/sync-branches-through-pr.yml`.
+
+            It merges all commits from `${{ github.event.inputs.source }}` branch into `${{ github.event.inputs.target }}` branch.
+
+            :warning: **IMPORTANT NOTE**: Remember to delete the `${{ steps.prepare.outputs.branch }}` branch after merging the changes.
