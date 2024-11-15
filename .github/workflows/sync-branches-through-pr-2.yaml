@@ -59,9 +59,11 @@ jobs:
         MAKEFILE="components/odh-notebook-controller/Makefile"
         if [[ -f "$MAKEFILE" && "$(git status --porcelain=v1 2>/dev/null | grep -c "$MAKEFILE")" -gt 0 ]]; then
           echo "Resolving conflicts in $MAKEFILE while preserving KF_TAG."
+          
+          cat "$MAKEFILE"
 
           # Extract KF_TAG from the target branch
-          KF_TAG_TARGET=$(git show :2:"$MAKEFILE" | grep -oP '^KF_TAG\s*=\s*\K.*' || echo "main")
+          KF_TAG_TARGET=$(cat "$MAKEFILE" | grep -oP '^KF_TAG\s*=\s*\K.*' || echo "main")
 
           if [[ -z "$KF_TAG_TARGET" ]]; then
             echo "KF_TAG not found in target branch; using a fallback value."
