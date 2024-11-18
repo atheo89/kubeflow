@@ -1,11 +1,16 @@
+include makefile-vars.mk
 
 # Image URL to use all building/pushing image targets
 IMG ?= quay.io/opendatahub/odh-notebook-controller
 TAG ?= $(shell git describe --tags --always)
 
 KF_IMG ?= quay.io/opendatahub/kubeflow-notebook-controller
-KF_TAG ?= main-3f9fg3781d2
+KF_TAG ?= $(KF_TAG)
 
+
+.PHONY: check
+check: ## Display this help.
+	echo "The value of KF_TAG is: $(KF_TAG)"
 #checkkk
 
 CONTAINER_ENGINE ?= podman
