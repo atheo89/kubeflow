@@ -82,12 +82,15 @@ jobs:
           git add components/odh-notebook-controller/makefile-vars.mk
           git commit -m ":robot: Update odh and notebook-controller with image ${VERSION}-${COMMIT_ID}"
 
+          # Create and checkout a new temporary branch based on main
+          git checkout -b ${{ env.TEMP_UPDATER_BRANCH }} ${{ env.BRANCH_NAME }}
+          
           # Ensure we are up to date with the remote branch before pushing
           echo "Pulling latest changes from the remote branch..."
           git pull origin ${{ env.BRANCH_NAME }} --rebase # Pull the latest changes with rebase
 
-          # Push changes to the branch
-          git push origin ${{ env.BRANCH_NAME }}
+          # Push changes to the temporary branch
+          git push origin ${{ env.TEMP_UPDATER_BRANCH }}
         else
           echo "No changes detected on ${{ env.BRANCH_NAME }}"
         fi
