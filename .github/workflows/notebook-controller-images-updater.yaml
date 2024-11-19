@@ -12,7 +12,7 @@ on:
         description: "Owner of origin kubeflow repository"
         default: "opendatahub-io"
       generate-pr:
-        description: "PR generation?"
+        description: "Generate a PR instead of merging changes directly"
         required: false
         default: "false"
   
@@ -21,6 +21,7 @@ env:
   REPO_NAME: kubeflow
   BRANCH_NAME: ${{ github.event.inputs.branch-name }}
   GENERATE_PR: ${{ github.event.inputs.generate-pr }}
+  TEMP_UPDATER_BRANCH: "update-notebook-controller-images-${{ github.sha }}" # Temporary branch name
   
 jobs:
   update-notebook-controller-images:
@@ -83,11 +84,21 @@ jobs:
 
           # Check if generate-pr is true, then open a PR
           if [[ "${{ env.GENERATE_PR }}" == "true" ]]; then
-            echo "Opening a pull request..."
-            git push origin ${{ env.BRANCH_NAME }}
-            PR_TITLE="Update notebook controller image to ${VERSION}-${COMMIT_ID}"
-            PR_BODY="This PR updates the notebook controller image tag to version ${VERSION}-${COMMIT_ID}."
-            gh pr create --base main --head ${{ env.BRANCH_NAME }} --title "$PR_TITLE" --body "$PR_BODY"
+            echo "Creating a pull request..."
+
+            # Create a new branch for the changes (optional)
+            git checkout -b ${{ env.TEMP_UPDATER_BRANCH }}
+            git push origin ${{ env.TEMP_UPDATER_BRANCH }}
+            
+            # Use GitHub CLI to create a PR
+            gh pr create --repo https://github.com/$REPO_OWNER/$REPO_NAME.git \
+              --title ":robot: Update odh and notebook-controller with image ${VERSION}-${COMMIT_ID}" \
+              --body ":robot: This is an automated Pull Request created by \`/.github/workflows/notebook-controller-images-updater.yaml\`." \
+              --head $REPO_OWNER:${{ env.TEMP_UPDATER_BRANCH }} \
+              --base ${{ env.BRANCH_NAME }} \
+              --label "automated"
+
+            echo "Pull request created successfully."
           else
             echo "Pushing changes directly to the branch..."
             git push origin ${{ env.BRANCH_NAME }}
