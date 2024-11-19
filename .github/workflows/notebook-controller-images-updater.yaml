@@ -1,7 +1,5 @@
----
-# This workflow automatically updates the notebook controller images with the latest commit ID
-# Can be run on demand before a new release
-name: Update Notebook Controller Images With Latest Commit ID
+# This workflow automatically updates the notebook controllers' image tags
+name: Update Notebook Controllers' Image Tags
 on:
   workflow_dispatch:
     inputs:
@@ -13,36 +11,42 @@ on:
         required: true
         description: "Owner of origin kubeflow repository"
         default: "opendatahub-io"
-
+      generate-pr:
+        description: "PR generation?"
+        required: false
+        default: "false"
+  
 env:
   REPO_OWNER: ${{ github.event.inputs.organization }}
   REPO_NAME: kubeflow
   BRANCH_NAME: ${{ github.event.inputs.branch-name }}
-
+  GENERATE_PR: ${{ github.event.inputs.generate-pr }}
+  
 jobs:
   update-notebook-controller-images:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      pull-requests: write # Grant permission to create PRs
 
     steps:
     - name: Checkout branch
       uses: actions/checkout@v4
       with:
         ref: ${{ env.BRANCH_NAME }}
-
+  
     - name: Configure Git
       run: |
         git config --global user.email "github-actions[bot]@users.noreply.github.com"
         git config --global user.name "GitHub Actions"
-
+  
     - name: Retrieve latest commit
       id: commit-id
       shell: bash
       run: |
         PAYLOAD=$(curl --silent -H 'Accept: application/vnd.github.v4.raw' https://api.github.com/repos/$REPO_OWNER/$REPO_NAME/commits?sha=$BRANCH_NAME&per_page=1)
         echo "COMMIT_ID=$(echo $PAYLOAD | jq -r '.[0].sha[0:7]')" >> ${GITHUB_OUTPUT}
-
+  
     - name: Extract version from branch-name
       id: version
       run: |
@@ -50,7 +54,7 @@ jobs:
           VERSION="main"
         else
           VERSION=$(echo "${{ env.BRANCH_NAME }}" | sed -E 's/^v([0-9]+\.[0-9]+)-.*/\1/')
-
+  
           # Check if VERSION is empty, then assign the full branch name
           if [[ -z "$VERSION" ]]; then
             VERSION="${{ env.BRANCH_NAME }}"
@@ -58,7 +62,7 @@ jobs:
         fi
         echo "VERSION=$VERSION" >> ${GITHUB_OUTPUT}
         echo "Extracted VERSION is: $VERSION"
-
+  
     - name: Update related files
       id: apply-changes
       run: |
@@ -68,15 +72,26 @@ jobs:
         sed -E "s/(odh-kf-notebook-controller-image=quay\.io\/opendatahub\/kubeflow-notebook-controller:)[^: -]+(-)[^ ]+/\1$VERSION\2$COMMIT_ID/" -i components/notebook-controller/config/overlays/openshift/params.env
         sed -E "s/(odh-notebook-controller-image=quay\.io\/opendatahub\/odh-notebook-controller:)[^: -]+(-)[^ ]+/\1$VERSION\2$COMMIT_ID/" -i  components/odh-notebook-controller/config/base/params.env
         sed -E "s/(KF_TAG \?= )[^\-]+(-)[^ ]+/\1$VERSION\2$COMMIT_ID/" -i components/odh-notebook-controller/makefile-vars.mk
-
+  
         git status
         if [[ $(git status --porcelain | wc -l) -gt 0 ]]; then
-          echo "Changes detected, committing and pushing..."
+          echo "Changes detected, committing..."
           git add components/notebook-controller/config/overlays/openshift/params.env
           git add components/odh-notebook-controller/config/base/params.env
           git add components/odh-notebook-controller/makefile-vars.mk
           git commit -m ":robot: Update odh and notebook-controller with image ${VERSION}-${COMMIT_ID}"
-          git push origin ${{ env.BRANCH_NAME }}
+
+          # Check if generate-pr is true, then open a PR
+          if [[ "${{ env.GENERATE_PR }}" == "true" ]]; then
+            echo "Opening a pull request..."
+            git push origin ${{ env.BRANCH_NAME }}
+            PR_TITLE="Update notebook controller image to ${VERSION}-${COMMIT_ID}"
+            PR_BODY="This PR updates the notebook controller image tag to version ${VERSION}-${COMMIT_ID}."
+            gh pr create --base main --head ${{ env.BRANCH_NAME }} --title "$PR_TITLE" --body "$PR_BODY"
+          else
+            echo "Pushing changes directly to the branch..."
+            git push origin ${{ env.BRANCH_NAME }}
+          fi
         else
           echo "No changes detected on ${{ env.BRANCH_NAME }}"
         fi
