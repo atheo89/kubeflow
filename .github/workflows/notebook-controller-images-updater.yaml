@@ -82,6 +82,10 @@ jobs:
           git add components/odh-notebook-controller/makefile-vars.mk
           git commit -m ":robot: Update odh and notebook-controller with image ${VERSION}-${COMMIT_ID}"
 
+          # Ensure we are up to date with the remote branch before pushing
+          echo "Pulling latest changes from the remote branch..."
+          git pull origin ${{ env.BRANCH_NAME }} --rebase # Pull the latest changes with rebase
+
           # Check if generate-pr is true, then open a PR
           if [[ "${{ env.GENERATE_PR }}" == "true" ]]; then
             echo "Creating a pull request..."
