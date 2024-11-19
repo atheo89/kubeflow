@@ -86,27 +86,27 @@ jobs:
           echo "Pulling latest changes from the remote branch..."
           git pull origin ${{ env.BRANCH_NAME }} --rebase # Pull the latest changes with rebase
 
-          # Check if generate-pr is true, then open a PR
-          if [[ "${{ env.GENERATE_PR }}" == "true" ]]; then
-            echo "Creating a pull request..."
-
-            # Create a new branch for the changes (optional)
-            git checkout -b ${{ env.TEMP_UPDATER_BRANCH }}
-            git push origin ${{ env.TEMP_UPDATER_BRANCH }}
-            
-            # Use GitHub CLI to create a PR
-            gh pr create --repo https://github.com/$REPO_OWNER/$REPO_NAME.git \
-              --title ":robot: Update odh and notebook-controller with image ${VERSION}-${COMMIT_ID}" \
-              --body ":robot: This is an automated Pull Request created by \`/.github/workflows/notebook-controller-images-updater.yaml\`." \
-              --head $REPO_OWNER:${{ env.TEMP_UPDATER_BRANCH }} \
-              --base ${{ env.BRANCH_NAME }} \
-              --label "automated"
-
-            echo "Pull request created successfully."
-          else
-            echo "Pushing changes directly to the branch..."
-            git push origin ${{ env.BRANCH_NAME }}
-          fi
+          # Push changes to the branch
+          git push origin ${{ env.BRANCH_NAME }}
         else
           echo "No changes detected on ${{ env.BRANCH_NAME }}"
         fi
+
+    - name: Create Pull Request
+      if: ${{ env.GENERATE_PR == 'true' }}
+      run: |
+        gh pr create --repo https://github.com/$REPO_OWNER/$REPO_NAME.git \
+          --title "$pr_title" \
+          --body "$pr_body" \
+          --head $REPO_OWNER:${{ env.TEMP_UPDATER_BRANCH }} \
+          --base ${{ env.BRANCH_NAME }}
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        pr_title: "[GHA] Update odh and notebook-controller with image ${{ steps.version.outputs.VERSION }}-${{ steps.commit-id.outputs.COMMIT_ID }}"
+        pr_body: |
+          :robot: This is an automated Pull Request created by `/.github/workflows/notebook-controller-images-updater.yaml`.
+
+          The following related files were updated:
+            - components/notebook-controller/config/overlays/openshift/params.env
+            - components/odh-notebook-controller/config/base/params.env
+            - components/odh-notebook-controller/makefile-vars.mk
