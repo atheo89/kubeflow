@@ -1,1 +1,1 @@
-KF_TAG ?= main-bc4822d
+KF_TAG ?= main-40e34b4
