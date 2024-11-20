@@ -9,7 +9,7 @@ on:
 jobs:
   # 1. Update the notebook controllers’ image tags on main (No PR needed)
   update-main-image-tags:
-    uses: atheo89/kubeflow/.github/workflows/notebook-controller-images-updater.yaml
+    uses: atheo89/kubeflow/.github/workflows/notebook-controller-images-updater.yaml@main
     with: 
       branch-name: "main"
       organization: "opendatahub-io"
@@ -17,7 +17,7 @@ jobs:
 
   # 2. Sync opendatahub:v1.9-branch with opendatahub:main
   sync-branches:
-    uses: atheo89/kubeflow/.github/workflows/sync-branches-through-pr-2.yaml
+    uses: atheo89/kubeflow/.github/workflows/sync-branches-through-pr-2.yaml@main
     with: 
       source: "main"
       target: "v1.9t"
