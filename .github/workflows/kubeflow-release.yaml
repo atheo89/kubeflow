@@ -10,7 +10,7 @@ jobs:
     uses: atheo89/kubeflow/.github/workflows/notebook-controller-images-updater.yaml@main
     with: 
       branch-name: "main"
-      organization: "opendatahub-io"
+      organization: "atheo89"
       generate-pr: false
   # 2. Sync opendatahub:v1.9-branch with opendatahub:main
   sync-branches:
