@@ -105,11 +105,8 @@ jobs:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         set -e
+        git fetch origin
         git checkout $TARGET_BRANCH
-        git merge --no-ff $SYNC_BRANCH
-
-        # Ensure the target branch is tracked with the remote
-        git branch --set-upstream-to origin/$TARGET_BRANCH
-
-        # Push the changes to the remote
+        git branch --set-upstream-to=origin/$TARGET_BRANCH $TARGET_BRANCH
+        git merge --no-ff $SYNC_BRANCH -m ":robot: Auto-merged changes from $SYNC_BRANCH"
         git push origin $TARGET_BRANCH
