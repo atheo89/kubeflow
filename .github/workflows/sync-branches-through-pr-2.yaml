@@ -12,6 +12,16 @@ on:
         description: "To:"
         required: true
         type: string
+  workflow_call:
+    inputs:
+      source:
+        description: "From:"
+        required: true
+        type: string
+      target:
+        description: "To:"
+        required: true
+        type: string
 
 jobs:
   sync-branches:
