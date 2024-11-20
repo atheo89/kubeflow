@@ -16,7 +16,20 @@ on:
         description: "Create PR?"
         required: true
         default: "true"
-
+  workflow_call:
+    inputs:
+      branch-name:
+        description: "Provide name of the branch, used to commit changes"
+        required: true
+        type: string
+      organization:
+        description: "Owner of origin kubeflow repository"
+        required: true
+        type: string
+      generate-pr:
+        description: "Create PR?"
+        required: true
+        type: boolean
 env:
   REPO_OWNER: ${{ github.event.inputs.organization }}
   REPO_NAME: kubeflow
