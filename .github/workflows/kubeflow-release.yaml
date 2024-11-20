@@ -1,11 +1,9 @@
 ---
 name: Kubeflow Release Workflow
-
 on:
   workflow_dispatch: # Manual trigger for full control
   schedule:
     - cron: '0 0 * * *' # runs every day at midnight
-
 jobs:
   # 1. Update the notebook controllers’ image tags on main (No PR needed)
   update-main-image-tags:
@@ -14,7 +12,6 @@ jobs:
       branch-name: "main"
       organization: "opendatahub-io"
       generate-pr: "false"
-
   # 2. Sync opendatahub:v1.9-branch with opendatahub:main
   sync-branches:
     uses: atheo89/kubeflow/.github/workflows/sync-branches-through-pr-2.yaml@main
