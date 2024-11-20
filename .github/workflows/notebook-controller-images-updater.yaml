@@ -1,5 +1,6 @@
-# This is a gha updates automatically the notebook controller images. Can be run on demand before a new release
-name: Update Notebook Controller Images With Latest Commit ID
+---
+# This workflow automatically updates the notebook controllers' image tags
+name: Update Notebook Controllers' Image Tags
 on:
   workflow_dispatch:
     inputs:
