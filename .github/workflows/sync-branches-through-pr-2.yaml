@@ -1,4 +1,3 @@
---- 
 name: Sync Branches
 
 on:
@@ -105,6 +104,12 @@ jobs:
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
+        set -e
         git checkout $TARGET_BRANCH
         git merge --no-ff $SYNC_BRANCH
+
+        # Ensure the target branch is tracked with the remote
+        git branch --set-upstream-to origin/$TARGET_BRANCH
+
+        # Push the changes to the remote
         git push origin $TARGET_BRANCH
