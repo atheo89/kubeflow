@@ -4,15 +4,15 @@ on:
   workflow_dispatch:
     inputs:
       branch-name:
-        description: "Provide name of the branch, ex: v1.9-branch"
+        description: "Provide name of the branch, used to commit changes"
         required: true
         default: "v1.9-branch"
       organization:
         required: true
-        description: "Owner of origin notebooks repository used to open a PR"
+        description: "Owner of origin kubeflow repository"
         default: "opendatahub-io"
       generate-pr:
-        description: "Set to true to generate a PR, otherwise changes will be auto-merged"
+        description: "Create PR?"
         required: true
         default: "true"
 
@@ -93,7 +93,7 @@ jobs:
           echo "There were no changes detected on ${{ env.BRANCH_NAME }}"
         fi
 
-    - name: Handle Changes with PR
+    - name: PR Cretation
       if: ${{ github.event.inputs.generate-pr == 'true' }}
       run: |
           gh pr create --repo https://github.com/$REPO_OWNER/$REPO_NAME.git \
