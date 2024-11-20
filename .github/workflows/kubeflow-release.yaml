@@ -14,6 +14,7 @@ jobs:
       generate-pr: false
   # 2. Sync opendatahub:v1.9-branch with opendatahub:main
   sync-branches:
+    needs: update-main-image-tags 
     uses: atheo89/kubeflow/.github/workflows/sync-branches-through-pr-2.yaml@main
     with: 
       source: "main"
