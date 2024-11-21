@@ -1,1 +1,1 @@
-KF_TAG ?= main-ec7013c
+KF_TAG ?= main-2a96c43
