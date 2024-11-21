@@ -32,6 +32,11 @@ jobs:
       with:
         fetch-depth: 0
 
+    - name: Debug Inputs
+      run: |
+        echo "source: ${{ inputs.source }}"
+        echo "target: ${{ inputs.target }}"
+
     - name: Set up Git
       run: |
         git config user.name "github-actions[bot]"
