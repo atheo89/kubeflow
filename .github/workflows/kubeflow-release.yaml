@@ -24,8 +24,8 @@ jobs:
     needs: sync-branches
     runs-on: ubuntu-latest
     steps:
-      - name: Sleep for 10 minutes
-        run: sleep 600
+      - name: Sleep for x min
+        run: sleep 1
   # 4. Update the notebook controllers’ image tags on release branch (PR needed to do the final tests)
   update-release-imges:
     needs: wait-for-sync
