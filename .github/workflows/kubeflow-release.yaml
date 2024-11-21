@@ -5,17 +5,32 @@ on:
   schedule:
     - cron: '0 0 * * *' # runs every day at midnight
 jobs:
-  # 1. Update the notebook controllers’ image tags on main (No PR needed)
-  update-main-image-tags:
+  # 1. Update the notebook controllers’ image tags on main
+  update-main-imges:
     uses: atheo89/kubeflow/.github/workflows/notebook-controller-images-updater.yaml@main
     with: 
       branch-name: "main"
       organization: "atheo89"
       generate-pr: false
-  # 2. Sync opendatahub:v1.9-branch with opendatahub:main
+  # 2. Sync opendatahub:v1.9-branch with opendatahub:main (No PR needed)
   sync-branches:
-    needs: update-main-image-tags
+    needs: update-main-imges
     uses: atheo89/kubeflow/.github/workflows/sync-branches-through-pr-2.yaml@main
     with:
       source: "main"
       target: "v1.9t"
+  # 3. Add a delay for 10 minutes in order to have the images ready on the quay.io
+  wait-for-sync:
+    needs: sync-branches
+    runs-on: ubuntu-latest
+    steps:
+      - name: Sleep for 10 minutes
+        run: sleep 600
+  # 4. Update the notebook controllers’ image tags on release branch (PR needed to do the final tests)
+  update-release-imges:
+    needs: wait-for-sync
+    uses: atheo89/kubeflow/.github/workflows/notebook-controller-images-updater.yaml@main
+    with: 
+      branch-name: "v1.9t"
+      organization: "atheo89"
+      generate-pr: true
