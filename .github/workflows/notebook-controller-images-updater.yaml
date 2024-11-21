@@ -31,10 +31,11 @@ on:
         required: true
         type: string
 env:
-  REPO_OWNER: ${{ github.event.inputs.organization }}
-  REPO_NAME: kubeflow
+  REPO_OWNER: ${{ inputs.organization }}
   TEMP_UPDATER_BRANCH: temp-${{ github.run_id }}
-  BRANCH_NAME: ${{ github.event.inputs.branch-name }}
+  BRANCH_NAME: ${{ inputs.branch-name }}
+  GENERATE_PR: ${{ inputs.generate-pr }}
+  REPO_NAME: kubeflow
 
 jobs:
   update-notebook-controller-images:
@@ -51,9 +52,9 @@ jobs:
 
     - name: Debug generate-pr Input
       run: |
-        echo "generate-pr: ${{ inputs.generate-pr }}"
-        echo "branch-name: ${{ inputs.branch-name }}"
-        echo "organization: ${{ inputs.organization }}"
+        echo "generate-pr: ${{ env.GENERATE_PR }}"
+        echo "branch-name: ${{ env.BRANCH_NAME }}"
+        echo "organization: ${{ env.REPO_OWNER }}"
 
 
     - name: Checkout new branch
@@ -115,7 +116,7 @@ jobs:
         fi
 
     - name: PR Cretation
-      if: ${{ github.event.inputs.generate-pr == 'true' }}
+      if: ${{  env.GENERATE_PR == 'true' }}
       run: |
           gh pr create --repo https://github.com/$REPO_OWNER/$REPO_NAME.git \
             --title "$pr_title" \
@@ -134,7 +135,7 @@ jobs:
               - components/odh-notebook-controller/makefile-vars.mk
 
     - name: Auto Merge Changes to Target Branch
-      if: ${{ github.event.inputs.generate-pr != 'true' }}
+      if: ${{ env.GENERATE_PR != 'true' }}
       run: |
           git fetch origin
           git checkout ${{ env.BRANCH_NAME }}
