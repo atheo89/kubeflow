@@ -16,10 +16,6 @@ on:
         description: "Create PR?"
         required: true
         default: "true"
-      temp-branch-name:
-        description: "Unique temporary branch name"
-        required: false
-        default: ""
   workflow_call:
     inputs:
       branch-name:
@@ -34,10 +30,7 @@ on:
         description: "Create PR?"
         required: true
         type: string
-      temp-branch-name:
-        description: "Unique temporary branch name"
-        required: false
-        type: string  
+
 env:
   REPO_OWNER: ${{ inputs.organization }}
   TEMP_UPDATER_BRANCH: temp-${{ inputs.branch-name }}-${{ github.run_id }}
@@ -58,7 +51,7 @@ jobs:
       with:
         ref: ${{ env.BRANCH_NAME }}
 
-    - name: Debug generate-pr Input
+    - name: Debug Inputs
       run: |
         echo "generate-pr: ${{ env.GENERATE_PR }}"
         echo "branch-name: ${{ env.BRANCH_NAME }}"

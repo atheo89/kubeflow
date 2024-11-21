@@ -20,8 +20,8 @@ jobs:
     with:
       source: "main"
       target: "v1.9t"
-  # 3. Add a delay for 10 minutes in order to have the images ready on the quay.io
-  wait-for-sync:
+  # 3. Add a delay for 10 minutes in order to have the images ready on the quay.io alternatvly (Maybe use skopeo)
+  wait-images-to-build-on-quay:
     needs: sync-branches
     runs-on: ubuntu-latest
     steps:
@@ -29,7 +29,7 @@ jobs:
         run: sleep 1
   # 4. Update the notebook controllers’ image tags on release branch (PR needed to do the final tests)
   update-release-imges:
-    needs: wait-for-sync
+    needs: wait-images-to-build-on-quay
     uses: atheo89/kubeflow/.github/workflows/notebook-controller-images-updater.yaml@main
     with: 
       branch-name: "v1.9t"
