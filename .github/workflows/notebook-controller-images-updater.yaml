@@ -7,11 +7,11 @@ on:
       branch-name:
         description: "Provide name of the branch, used to commit changes"
         required: true
-        default: "v1.9-branch"
+        default: "main"
       organization:
         required: true
         description: "Owner of origin kubeflow repository"
-        default: "opendatahub-io"
+        default: "atheo89"
       generate-pr:
         description: "Create PR?"
         required: true
@@ -48,6 +48,17 @@ jobs:
       uses: actions/checkout@v4
       with:
         ref: ${{ env.BRANCH_NAME }}
+
+    - name: Debug generate-pr Input
+      run: |
+        echo "generate-pr: ${{ github.event.inputs.generate-pr }}"
+        if [[ "${{ github.event.inputs.generate-pr }}" == "true" ]]; then
+          echo "generate-pr is a string with value 'true'"
+        elif [[ "${{ github.event.inputs.generate-pr }}" == true ]]; then
+          echo "generate-pr is a boolean with value true"
+        else
+          echo "generate-pr is false or undefined"
+        fi
 
     - name: Checkout new branch
       run: |
