@@ -29,7 +29,7 @@ on:
       generate-pr:
         description: "Create PR?"
         required: true
-        type: boolean
+        type: string
 env:
   REPO_OWNER: ${{ github.event.inputs.organization }}
   REPO_NAME: kubeflow
