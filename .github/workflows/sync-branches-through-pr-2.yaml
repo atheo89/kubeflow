@@ -49,8 +49,6 @@ jobs:
     - name: Merge source branch into target
       run: |
         set -e
-        SOURCE_BRANCH="${{ inputs.source }}"
-        TARGET_BRANCH="${{ inputs.target }}"
 
         # Fetch and checkout target branch
         git fetch origin ${{ env.TARGET_BRANCH }}:${{ env.TARGET_BRANCH }}
