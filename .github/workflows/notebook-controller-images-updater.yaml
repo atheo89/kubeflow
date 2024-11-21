@@ -49,6 +49,17 @@ jobs:
       with:
         ref: ${{ env.BRANCH_NAME }}
 
+    - name: Debug generate-pr Input
+      run: |
+        echo "generate-pr: ${{ github.event.inputs.generate-pr }}"
+        if [[ "${{ github.event.inputs.generate-pr }}" == "true" ]]; then
+          echo "generate-pr is a string with value 'true'"
+        elif [[ "${{ github.event.inputs.generate-pr }}" == true ]]; then
+          echo "generate-pr is a boolean with value true"
+        else
+          echo "generate-pr is false or undefined"
+        fi
+
     - name: Checkout new branch
       run: |
        echo ${{ env.TEMP_UPDATER_BRANCH }}
