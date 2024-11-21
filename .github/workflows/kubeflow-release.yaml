@@ -11,7 +11,7 @@ jobs:
     with: 
       branch-name: "main"
       organization: "atheo89"
-      generate-pr: false
+      generate-pr: "false"
   # 2. Sync opendatahub:v1.9-branch with opendatahub:main (No PR needed)
   sync-branches:
     needs: update-main-imges
@@ -33,4 +33,4 @@ jobs:
     with: 
       branch-name: "v1.9t"
       organization: "atheo89"
-      generate-pr: true
+      generate-pr: "true"
