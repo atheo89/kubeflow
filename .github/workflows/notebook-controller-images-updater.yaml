@@ -51,14 +51,10 @@ jobs:
 
     - name: Debug generate-pr Input
       run: |
-        echo "generate-pr: ${{ github.event.inputs.generate-pr }}"
-        if [[ "${{ github.event.inputs.generate-pr }}" == "true" ]]; then
-          echo "generate-pr is a string with value 'true'"
-        elif [[ "${{ github.event.inputs.generate-pr }}" == true ]]; then
-          echo "generate-pr is a boolean with value true"
-        else
-          echo "generate-pr is false or undefined"
-        fi
+        echo "generate-pr: ${{ inputs.generate-pr }}"
+        echo "branch-name: ${{ inputs.branch-name }}"
+        echo "organization: ${{ inputs.organization }}"
+
 
     - name: Checkout new branch
       run: |
