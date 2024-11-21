@@ -16,6 +16,10 @@ on:
         description: "Create PR?"
         required: true
         default: "true"
+      temp-branch-name:
+        description: "Unique temporary branch name"
+        required: false
+        default: ""
   workflow_call:
     inputs:
       branch-name:
@@ -30,9 +34,13 @@ on:
         description: "Create PR?"
         required: true
         type: string
+      temp-branch-name:
+        description: "Unique temporary branch name"
+        required: false
+        type: string  
 env:
   REPO_OWNER: ${{ inputs.organization }}
-  TEMP_UPDATER_BRANCH: temp-${{ github.run_id }}
+  TEMP_UPDATER_BRANCH: ${{ inputs.temp-branch-name }}
   BRANCH_NAME: ${{ inputs.branch-name }}
   GENERATE_PR: ${{ inputs.generate-pr }}
   REPO_NAME: kubeflow
@@ -57,18 +65,11 @@ jobs:
         echo "organization: ${{ env.REPO_OWNER }}"
 
 
-#    - name: Checkout new branch
- #     run: |
-  #     echo ${{ env.TEMP_UPDATER_BRANCH }}
-   #    git checkout -b ${{ env.TEMP_UPDATER_BRANCH }}
-   #    git push --set-upstream origin ${{ env.TEMP_UPDATER_BRANCH }}
-
     - name: Checkout new branch
       run: |
         echo ${{ env.TEMP_UPDATER_BRANCH }}
-        git fetch origin ${{ env.BRANCH_NAME }}
+        git fetch origin
         git checkout -b ${{ env.TEMP_UPDATER_BRANCH }} origin/${{ env.BRANCH_NAME }}
-        git pull origin ${{ env.BRANCH_NAME }} --rebase
         git push --set-upstream origin ${{ env.TEMP_UPDATER_BRANCH }}
 
     - name: Configure Git
