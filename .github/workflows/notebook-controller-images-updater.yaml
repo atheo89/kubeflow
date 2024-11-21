@@ -15,7 +15,7 @@ on:
       generate-pr:
         description: "Create PR?"
         required: true
-        default: true
+        default: "true"
   workflow_call:
     inputs:
       branch-name:
@@ -29,7 +29,7 @@ on:
       generate-pr:
         description: "Create PR?"
         required: true
-        type: boolean
+        type: string
 env:
   REPO_OWNER: ${{ inputs.organization }}
   TEMP_UPDATER_BRANCH: temp-${{ github.run_id }}
@@ -116,7 +116,7 @@ jobs:
         fi
 
     - name: PR Cretation
-      if: ${{  env.GENERATE_PR == true }}
+      if: ${{  env.GENERATE_PR == 'true' }}
       run: |
           gh pr create --repo https://github.com/$REPO_OWNER/$REPO_NAME.git \
             --title "$pr_title" \
@@ -135,7 +135,7 @@ jobs:
               - components/odh-notebook-controller/makefile-vars.mk
 
     - name: Auto Merge Changes to Target Branch
-      if: ${{ env.GENERATE_PR != true }}
+      if: ${{ env.GENERATE_PR != 'true' }}
       run: |
           git fetch origin
           git checkout ${{ env.BRANCH_NAME }}
