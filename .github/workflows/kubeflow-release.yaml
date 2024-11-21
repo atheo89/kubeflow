@@ -12,7 +12,7 @@ jobs:
       branch-name: "main"
       organization: "atheo89"
       generate-pr: "false"
-      temp-branch-name: "temp-main-${{ github.run_id }}"
+
   # 2. Sync opendatahub:v1.9-branch with opendatahub:main (No PR needed)
   sync-branches:
     needs: update-main-imges
@@ -35,4 +35,4 @@ jobs:
       branch-name: "v1.9t"
       organization: "atheo89"
       generate-pr: "true"
-      temp-branch-name: "temp-release-${{ github.run_id }}"
+
