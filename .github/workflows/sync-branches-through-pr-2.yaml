@@ -21,6 +21,9 @@ on:
         description: "To:"
         required: true
         type: string
+env:
+  SOURCE_BRANCH: ${{ inputs.source }}
+  TARGET_BRANCH: ${{ inputs.target }}
 
 jobs:
   sync-branches:
@@ -34,8 +37,9 @@ jobs:
 
     - name: Debug Inputs
       run: |
-        echo "source: ${{ inputs.source }}"
-        echo "target: ${{ inputs.target }}"
+        echo "source: ${{ env.SOURCE_BRANCH }}"
+        echo "target: ${{ env.TARGET_BRANCH }}"
+
 
     - name: Set up Git
       run: |
@@ -49,12 +53,12 @@ jobs:
         TARGET_BRANCH="${{ inputs.target }}"
 
         # Fetch and checkout target branch
-        git fetch origin $TARGET_BRANCH:$TARGET_BRANCH
-        git checkout $TARGET_BRANCH
+        git fetch origin ${{ env.TARGET_BRANCH }}:${{ env.TARGET_BRANCH }}
+        git checkout ${{ env.TARGET_BRANCH }}
 
         # Fetch and merge source branch
-        git fetch origin $SOURCE_BRANCH:$SOURCE_BRANCH
-        git merge --no-commit origin/$SOURCE_BRANCH || true
+        git fetch origin ${{ env.SOURCE_BRANCH }}:${{ env.SOURCE_BRANCH }}
+        git merge --no-commit origin/${{ env.SOURCE_BRANCH }} || true
 
         # Known files to resolve the conflicts
         FILES=(
@@ -82,11 +86,11 @@ jobs:
 
         # Commit changes if any
         if [[ -n "$(git status --porcelain)" ]]; then
-          git commit -m "Merge ${SOURCE_BRANCH} into ${TARGET_BRANCH} with known resolved conflicts"
+          git commit -m "Merge ${{ env.SOURCE_BRANCH }} into ${{ env.TARGET_BRANCH }} with known resolved conflicts"
         else
           echo "No changes to commit. Skipping push."
           exit 0
         fi
 
         # Push changes directly to target branch
-        git push origin $TARGET_BRANCH
+        git push origin ${{ env.TARGET_BRANCH }}
