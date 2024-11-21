@@ -1,1 +1,1 @@
-KF_TAG ?= main-00f2c46
+KF_TAG ?= main-2f06f5f
