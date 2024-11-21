@@ -108,7 +108,7 @@ jobs:
         fi
 
     - name: PR Cretation
-      if: ${{ github.event.inputs.generate-pr == 'true' }}
+      if: ${{ github.event.inputs.generate-pr == "true" }}
       run: |
           gh pr create --repo https://github.com/$REPO_OWNER/$REPO_NAME.git \
             --title "$pr_title" \
@@ -127,7 +127,7 @@ jobs:
               - components/odh-notebook-controller/makefile-vars.mk
 
     - name: Auto Merge Changes to Target Branch
-      if: ${{ github.event.inputs.generate-pr != 'true' }}
+      if: ${{ github.event.inputs.generate-pr != "true" }}
       run: |
           git fetch origin
           git checkout ${{ env.BRANCH_NAME }}
