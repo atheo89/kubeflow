@@ -109,7 +109,7 @@ jobs:
           git add components/notebook-controller/config/overlays/openshift/params.env
           git add components/odh-notebook-controller/config/base/params.env
           git add components/odh-notebook-controller/makefile-vars.mk
-          git commit -m ":robot: Update odh and notebook-controller with image ${VERSION}-${COMMIT_ID}"
+          git commit -m "Update odh and notebook-controller with image ${VERSION}-${COMMIT_ID}"
           git push origin ${{ env.TEMP_UPDATER_BRANCH }}
         else
           echo "There were no changes detected on ${{ env.BRANCH_NAME }}"
