@@ -58,7 +58,7 @@ jobs:
       with:
         ref: ${{ env.BRANCH_NAME }}
 
-    - name: Debug generate-pr Input
+    - name: Debug Inputs
       run: |
         echo "generate-pr: ${{ env.GENERATE_PR }}"
         echo "branch-name: ${{ env.BRANCH_NAME }}"
