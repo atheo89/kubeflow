@@ -139,5 +139,5 @@ jobs:
       run: |
           git fetch origin
           git checkout ${{ env.BRANCH_NAME }}
-          git merge --no-ff ${{ env.TEMP_UPDATER_BRANCH }} -m ":robot: Auto-merged changes from ${{ env.TEMP_UPDATER_BRANCH }}"
+          git merge --no-ff ${{ env.TEMP_UPDATER_BRANCH }} -m ":robot: Update odh and notebook-controller with image ${VERSION}-${COMMIT_ID} auto-merged changes from ${{ env.TEMP_UPDATER_BRANCH }}"
           git push origin ${{ env.BRANCH_NAME }}
