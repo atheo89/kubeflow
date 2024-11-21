@@ -40,7 +40,7 @@ on:
         type: string  
 env:
   REPO_OWNER: ${{ inputs.organization }}
-  TEMP_UPDATER_BRANCH: ${{ inputs.temp-branch-name }}
+  TEMP_UPDATER_BRANCH: temp-${{ inputs.branch-name }}-${{ github.run_id }}
   BRANCH_NAME: ${{ inputs.branch-name }}
   GENERATE_PR: ${{ inputs.generate-pr }}
   REPO_NAME: kubeflow
