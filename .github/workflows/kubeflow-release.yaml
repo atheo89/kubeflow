@@ -31,7 +31,7 @@ jobs:
       pr_merged: ${{ steps.check.outputs.pr_merged }}
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
 
       - name: Check if the PR is merged
         id: check
@@ -41,15 +41,17 @@ jobs:
           PR_NUMBER=$(gh pr list --state open --head atheo89:v1.9t --json number --jq '.[0].number')
           if [ -z "$PR_NUMBER" ]; then
             echo "PR is already merged or doesn't exist."
-            echo "::set-output name=pr_merged::true"
+            echo "pr_merged=false" >> $GITHUB_ENV
           else
             PR_STATE=$(gh pr view $PR_NUMBER --json merged --jq '.merged')
             if [ "$PR_STATE" = "true" ]; then
-              echo "::set-output name=pr_merged::true"
+              echo "pr_merged=true" >> $GITHUB_ENV
             else
-              echo "::set-output name=pr_merged::false"
+              echo "pr_merged=false" >> $GITHUB_ENV
             fi
           fi
+        outputs:
+          pr_merged: ${{ env.pr_merged }}
 
   # 5. Create the release
   create-release:
