@@ -48,6 +48,7 @@ jobs:
   # 4. Create the release
   create-release:
     needs: update-release-images
+    if: env.pr_merged == 'true'
     uses: atheo89/kubeflow/.github/workflows/hello.yaml@main
     with:
       input_var: "Geia"
