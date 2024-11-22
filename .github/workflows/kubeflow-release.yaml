@@ -1,7 +1,7 @@
 ---
 name: Kubeflow Release Workflow
 on:
-  workflow_dispatch: # Manual trigger
+  workflow_dispatch:
 jobs:
   # 1. Sync opendatahub:v1.9-branch with opendatahub:main
   sync-release-branch:
@@ -24,4 +24,11 @@ jobs:
       branch-name: "v1.9t"
       organization: "atheo89"
       generate-pr: "true"
+  create-release:
+    needs: update-release-imges
+    uses: atheo89/kubeflow/.github/workflows/hello.yaml@main
+    with:
+      input_var: "Geia" 
+
+  
 
