@@ -27,8 +27,6 @@ jobs:
   check-pr-merged:
     needs: update-release-images
     runs-on: ubuntu-latest
-    outputs:
-      pr_merged: ${{ steps.check.outputs.pr_merged }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v3
@@ -49,9 +47,10 @@ jobs:
             else
               echo "pr_merged=false" >> $GITHUB_ENV
             fi
-          fi
-        outputs:
-          pr_merged: ${{ env.pr_merged }}
+          echo "pr_merged=${pr_merged}" > $GITHUB_ENV
+
+    outputs:
+      pr_merged: ${{ steps.check.outputs.pr_merged }}
 
   # 5. Create the release
   create-release:
