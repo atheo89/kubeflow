@@ -20,6 +20,6 @@ jobs:
 
     steps:
       - name: Say Hello
-        run: echo "Hello, World!"
+        run: echo "$input_var, World!"
 
 
