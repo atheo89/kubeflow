@@ -1,5 +1,5 @@
 ---
-name: Say Hello until create release be ready 
+name: Say Hello
 on:
   workflow_dispatch:
     inputs:
