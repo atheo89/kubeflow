@@ -23,6 +23,28 @@ jobs:
       branch-name: "v1.9t"
       organization: "atheo89"
       generate-pr: "true"
+  # 4. Check PR merged status
+  check-pr-merged:
+    needs: update-release-images
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check if the PR is merged
+        id: check_pr
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_NUMBER=$(gh pr list --state open --head atheo89:v1.9t --json number --jq '.[0].number')
+          if [ -z "$PR_NUMBER" ]; then
+            echo "PR is already merged or doesn't exist."
+            echo "pr_merged=true" >> $GITHUB_ENV
+          else
+            PR_STATE=$(gh pr view $PR_NUMBER --json merged --jq '.merged')
+            if [ "$PR_STATE" = "true" ]; then
+              echo "pr_merged=true" >> $GITHUB_ENV
+            else
+              echo "pr_merged=false" >> $GITHUB_ENV
+            fi
+          fi
   # 4. Create the release
   create-release:
     needs: update-release-images
