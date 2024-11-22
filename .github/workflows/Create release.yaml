@@ -1,24 +1,75 @@
 name: Create release
-
 on:
-  push:
-    tags:
-      - v*
+  workflow_dispatch:
+    inputs:
+      base_tag:
+        description: "Base tag (e.g., v1.9.0)"
+        required: true
+      target_branch:
+        description: "Target branch for the release (e.g., v1.9-branch)"
+        required: true
+  workflow_call:
+    inputs:
+      base_tag:
+        type: string
+        required: true
+      target_branch:
+        type: string
+        required: true
 
 permissions:
   contents: write
 
 jobs:
   release:
-    name: Release pushed tag
+    name: Create Release
     runs-on: ubuntu-22.04
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up GitHub CLI
+        run: |
+          sudo apt update
+          sudo apt install gh -y
+
+      - name: Determine next incremental tag
+        id: determine_tag
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BASE_TAG="${{ inputs.base_tag || github.event.inputs.base_tag }}"
+          
+          # Fetch all existing releases
+          EXISTING_TAGS=$(gh release list --repo "${{ github.repository }}" --json tagName -q '.[].tagName')
+          
+          # Filter for tags starting with the base tag and extract the last incremental suffix
+          LAST_INCREMENT=$(echo "$EXISTING_TAGS" | grep "^${BASE_TAG}-" | sed -E "s/^${BASE_TAG}-([0-9]+)/\1/" | sort -n | tail -n 1)
+          
+          # Increment the suffix or set to 1 if none exist
+          if [ -z "$LAST_INCREMENT" ]; then
+            NEW_INCREMENT=1
+          else
+            NEW_INCREMENT=$((LAST_INCREMENT + 1))
+          fi
+
+          # Construct the new tag
+          NEW_TAG="${BASE_TAG}-${NEW_INCREMENT}"
+
+          echo "New tag determined: $NEW_TAG"
+          echo "new_tag=$NEW_TAG" >> $GITHUB_ENV
+
       - name: Create release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          tag: ${{ github.ref_name }}
         run: |
-          gh release create "$tag" \
-              --repo="atheo89/kubeflow" \
-              --title="${GITHUB_REPOSITORY#*/} ${tag#v}" \
+          NEW_TAG="${{ env.new_tag }}"
+          TARGET_BRANCH="${{ inputs.target_branch || github.event.inputs.target_branch }}"
+
+          echo "Creating release with tag: $NEW_TAG targeting branch: $TARGET_BRANCH"
+
+          gh release create "$NEW_TAG" \
+              --repo="${{ github.repository }}" \
+              --target="$TARGET_BRANCH" \
+              --title="$NEW_TAG" \
               --generate-notes
