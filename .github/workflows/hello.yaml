@@ -1,0 +1,31 @@
+name: Say Hello until create release be ready 
+on:
+  workflow_dispatch:
+    inputs:
+      base_tag:
+        description: "Base tag (e.g., v1.9.0)"
+        required: true
+      target_branch:
+        description: "Target branch for the release (e.g., v1.9-branch)"
+        required: true
+  workflow_call:
+    inputs:
+      base_tag:
+        type: string
+        required: true
+      target_branch:
+        type: string
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  say-hello:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Say Hello
+        run: echo "Hello, World!"
+
+
