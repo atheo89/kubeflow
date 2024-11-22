@@ -1,1 +1,1 @@
-KF_TAG ?= main-8a5fecd
+KF_TAG ?= main
