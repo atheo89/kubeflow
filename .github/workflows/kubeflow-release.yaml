@@ -37,7 +37,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           # Specify the PR title to look for
-          PR_TITLE="[GHA] Update odh and notebook-controller with image"
+          PR_TITLE="[GHA-${{ github.run_id }}]"
   
           # Find the PR matching the title
           PR_NUMBER=$(gh pr list --state all --search "$PR_TITLE" --json number,title --jq '.[] | select(.title | startswith(env.PR_TITLE)) | .number')
