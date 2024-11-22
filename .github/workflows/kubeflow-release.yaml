@@ -36,24 +36,32 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Specify the PR title pattern to look for
+          # Define the PR title to look for
           PR_TITLE="[GHA-${{ github.run_id }}]"
   
-          # Find the PR matching the partial title
-          PR_NUMBER=$(gh pr list --state all --search "$PR_TITLE" --json number,title --jq '.[] | select(.title? and (.title | contains(env.PR_TITLE))) | .number')
+          # Fetch matching PRs and save JSON
+          gh pr list --repo atheo89/kubeflow --state all --search "$PR_TITLE" --json number,title > pr_list.json
           
+          # Inspect the output
+          echo "PR list output:"
+          cat pr_list.json
+  
+          # Extract the PR number
+          PR_NUMBER=$(jq '.[0].number' pr_list.json)
+          echo "Found PR number: $PR_NUMBER"
+  
           if [ -z "$PR_NUMBER" ]; then
             echo "No matching PR found."
             echo "pr_merged=false" >> $GITHUB_ENV
           else
-            echo "Found PR #$PR_NUMBER with title containing '$PR_TITLE'."
-            PR_STATE=$(gh pr view $PR_NUMBER --json merged --jq '.merged')
-            if [ "$PR_STATE" = "true" ]; then
-              echo "PR #$PR_NUMBER is merged."
-              echo "pr_merged=true" >> $GITHUB_ENV
-            else
+            # Check if the PR is merged
+            PR_STATE=$(gh pr view --repo atheo89/kubeflow $PR_NUMBER --json mergedAt --jq '.mergedAt')
+            if [ "$PR_STATE" = "null" ]; then
               echo "PR #$PR_NUMBER is not merged yet."
               echo "pr_merged=false" >> $GITHUB_ENV
+            else
+              echo "PR #$PR_NUMBER is merged."
+              echo "pr_merged=true" >> $GITHUB_ENV
             fi
           fi
     outputs:
