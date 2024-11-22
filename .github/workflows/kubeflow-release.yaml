@@ -47,7 +47,7 @@ jobs:
           cat pr_list.json
   
           # Extract the PR number
-          PR_NUMBER=$(jq '.[0].number' pr_list.json)
+          PR_NUMBER=$(jq '.[0].number' pr_list.json | tr -d '"')
           echo "Found PR number: $PR_NUMBER"
   
           if [ -z "$PR_NUMBER" ]; then
@@ -56,7 +56,9 @@ jobs:
           else
             # Check if the PR is merged
             PR_STATE=$(gh pr view --repo atheo89/kubeflow $PR_NUMBER --json mergedAt --jq '.mergedAt')
-            if [ "$PR_STATE" = "null" ]; then
+            echo "MergedAt status: $PR_STATE"
+  
+            if [ -z "$PR_STATE" ] || [ "$PR_STATE" = "null" ]; then
               echo "PR #$PR_NUMBER is not merged yet."
               echo "pr_merged=false" >> $GITHUB_ENV
             else
