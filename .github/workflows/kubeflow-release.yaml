@@ -1,7 +1,7 @@
 ---
 name: Kubeflow Release Workflow
 on:
-  workflow_dispatch: # Manual trigger
+  workflow_dispatch:
 jobs:
   # 1. Sync opendatahub:v1.9-branch with opendatahub:main
   sync-release-branch:
@@ -17,11 +17,19 @@ jobs:
       - name: Sleep for x min
         run: sleep 1
   # 3. Update the notebook controllers’ image tags on release branch (PR needed to do the final tests)
-  update-release-imges:
+  update-release-images:
     needs: wait-images-to-build-on-quay
     uses: atheo89/kubeflow/.github/workflows/notebook-controller-images-updater.yaml@main
     with: 
       branch-name: "v1.9t"
       organization: "atheo89"
       generate-pr: "true"
+# 4. Create the release
+  create-release:
+    needs: update-release-images
+    uses: atheo89/kubeflow/.github/workflows/hello.yaml@main
+    with:
+      input_var: "Geia" 
+
+  
 
