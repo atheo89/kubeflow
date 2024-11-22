@@ -28,7 +28,6 @@ jobs:
   create-release:
     needs: update-release-images
     uses: atheo89/kubeflow/.github/workflows/hello.yaml@main
-    if: ${{ github.event.pull_request.merged == true && contains(github.event.pull_request.title, '[GHA] Update odh and notebook-controller with image') }}
     with:
       input_var: "Geia"
 
