@@ -40,7 +40,7 @@ jobs:
           PR_TITLE="[GHA-${{ github.run_id }}]"
   
           # Find the PR matching the title
-          PR_NUMBER=$(gh pr list --state all --search "$PR_TITLE" --json number,title --jq '.[] | select(.title | startswith(env.PR_TITLE)) | .number')
+          PR_NUMBER=$(gh pr list --state all --search "$PR_TITLE" --json number,title --jq '.[] | select(.title? | startswith(env.PR_TITLE)) | .number')
           
           if [ -z "$PR_NUMBER" ]; then
             echo "No matching PR found."
