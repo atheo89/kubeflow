@@ -53,7 +53,7 @@ jobs:
   
           # Polling loop to wait for the PR to be merged
           MAX_ATTEMPTS=30  # Maximum number of attempts
-          SLEEP_DURATION=60  # Wait time between checks in seconds
+          SLEEP_DURATION=5  # Wait time between checks in seconds
   
           for (( i=1; i<=MAX_ATTEMPTS; i++ )); do
             echo "Checking if PR #$PR_NUMBER is merged (Attempt $i/$MAX_ATTEMPTS)..."
@@ -77,7 +77,7 @@ jobs:
   # 5. Create the release
   create-release:
     needs: [update-release-images, check-pr-merged]
-    if: needs.check-pr-merged.outputs.pr_merged == 'true'
+    if: ${{ needs.check-pr-merged.outputs.pr_merged == 'true' }}
     uses: atheo89/kubeflow/.github/workflows/hello.yaml@main
     with:
       input_var: "Geia"
