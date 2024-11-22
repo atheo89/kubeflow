@@ -16,20 +16,50 @@ jobs:
     steps:
       - name: Sleep for x min
         run: sleep 1
-  # 3. Update the notebook controllers’ image tags on release branch (PR needed to do the final tests)
+  # 3. Update the notebook controllers’ image tags on release branch
   update-release-images:
     needs: wait-images-to-build-on-quay
-    uses: atheo89/kubeflow/.github/workflows/notebook-controller-images-updater.yaml@main
-    with: 
-      branch-name: "v1.9t"
-      organization: "atheo89"
-      generate-pr: "true"
-  # 4. Create the release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run reusable workflow to update images
+        uses: atheo89/kubeflow/.github/workflows/notebook-controller-images-updater.yaml@main
+        with:
+          branch-name: "v1.9t"
+          organization: "atheo89"
+          generate-pr: "true"
+
+      - name: Capture PR Number
+        id: capture_pr
+        run: |
+          PR_NUMBER=$(gh pr list --repo https://github.com/atheo89/kubeflow.git \
+            --head atheo89/v1.9t --state open --json number --jq '.[0].number')
+          if [ -z "$PR_NUMBER" ]; then
+            echo "No PR created or found. Exiting."
+            exit 1
+          fi
+          echo "PR_NUMBER=$PR_NUMBER" >> $GITHUB_ENV
+          echo "::set-output name=pr_number::$PR_NUMBER"}
+
+  # 4. Check if PR is merged and create the release
   create-release:
     needs: update-release-images
-    uses: atheo89/kubeflow/.github/workflows/hello.yaml@main
-    with:
-      input_var: "Geia"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check if PR is merged
+        id: check_pr
+        run: |
+          echo "Checking status of PR #${{ steps.capture_pr.outputs.pr_number }}"
+          PR_STATUS=$(gh pr view ${{ steps.capture_pr.outputs.pr_number }} --repo https://github.com/atheo89/kubeflow.git --json merged --jq '.merged')
+          if [ "$PR_STATUS" != "true" ]; then
+            echo "PR is not merged. Exiting."
+            exit 1
+          fi
+          echo "PR is merged. Proceeding."
+
+      - name: Trigger create-release
+        uses: atheo89/kubeflow/.github/workflows/hello.yaml@main
+        with:
+          input_var: "Geia"
 
   
 
