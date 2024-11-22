@@ -42,30 +42,35 @@ jobs:
           # Fetch matching PRs and save JSON
           gh pr list --repo atheo89/kubeflow --state all --search "$PR_TITLE" --json number,title > pr_list.json
           
-          # Inspect the output
-          echo "PR list output:"
-          cat pr_list.json
-  
           # Extract the PR number
-          PR_NUMBER=$(jq '.[0].number' pr_list.json | tr -d '"')
+          PR_NUMBER=$(jq -r '.[0].number' pr_list.json)
           echo "Found PR number: $PR_NUMBER"
   
           if [ -z "$PR_NUMBER" ]; then
             echo "No matching PR found."
-            echo "pr_merged=false" >> $GITHUB_ENV
-          else
-            # Check if the PR is merged
-            PR_STATE=$(gh pr view --repo atheo89/kubeflow $PR_NUMBER --json mergedAt --jq '.mergedAt')
-            echo "MergedAt status: $PR_STATE"
-  
-            if [ -z "$PR_STATE" ] || [ "$PR_STATE" = "null" ]; then
-              echo "PR #$PR_NUMBER is not merged yet."
-              echo "pr_merged=false" >> $GITHUB_ENV
-            else
-              echo "PR #$PR_NUMBER is merged."
-              echo "pr_merged=true" >> $GITHUB_ENV
-            fi
+            exit 1
           fi
+  
+          # Polling loop to wait for the PR to be merged
+          MAX_ATTEMPTS=30  # Maximum number of attempts
+          SLEEP_DURATION=60  # Wait time between checks in seconds
+  
+          for (( i=1; i<=MAX_ATTEMPTS; i++ )); do
+            echo "Checking if PR #$PR_NUMBER is merged (Attempt $i/$MAX_ATTEMPTS)..."
+            PR_STATE=$(gh pr view --repo atheo89/kubeflow $PR_NUMBER --json mergedAt --jq '.mergedAt')
+  
+            if [ "$PR_STATE" = "null" ] || [ -z "$PR_STATE" ]; then
+              echo "PR #$PR_NUMBER is not merged yet. Waiting..."
+              sleep $SLEEP_DURATION
+            else
+              echo "PR #$PR_NUMBER is merged!"
+              echo "pr_merged=true" >> $GITHUB_ENV
+              exit 0
+            fi
+          done
+  
+          echo "Timed out waiting for PR #$PR_NUMBER to be merged."
+          exit 1
     outputs:
       pr_merged: ${{ steps.check.outputs.pr_merged }}
 
