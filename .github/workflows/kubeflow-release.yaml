@@ -24,12 +24,18 @@ jobs:
       branch-name: "v1.9t"
       organization: "atheo89"
       generate-pr: "true"
-# 4. Create the release
+  # 4. Create the release
   create-release:
     needs: update-release-images
-    uses: atheo89/kubeflow/.github/workflows/hello.yaml@main
-    with:
-      input_var: "Geia" 
+    runs-on: ubuntu-latest
+    if: ${{ github.event.pull_request.merged == true && github.event.pull_request.head.ref == 'temp-${{ inputs.branch-name }}-${{ github.run_id }}' }}
+    steps:
+      - name: Echo Release Info
+        run: echo "PR was merged, proceeding with release"
+      - name: Run Hello Workflow
+        uses: atheo89/kubeflow/.github/workflows/hello.yaml@main
+        with:
+          input_var: "Geia"
 
   
 
