@@ -12,8 +12,8 @@ on:
         type: string
         required: true
 
-permissions:
-  contents: write
+env:
+  INPUT_VAR: ${{ inputs.input_var }}
 
 jobs:
   say-hello:
@@ -21,6 +21,6 @@ jobs:
 
     steps:
       - name: Say Hello
-        run: echo "$input_var, World!"
+        run: echo "${{ env.INPUT_VAR }}, World!"
 
 
