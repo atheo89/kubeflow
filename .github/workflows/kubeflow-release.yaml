@@ -2,6 +2,9 @@
 name: Kubeflow Release Workflow
 on:
   workflow_dispatch:
+  pull_request:
+    types:
+      - closed
 jobs:
   # 1. Sync opendatahub:v1.9-branch with opendatahub:main
   sync-release-branch:
@@ -24,12 +27,13 @@ jobs:
       branch-name: "v1.9t"
       organization: "atheo89"
       generate-pr: "true"
-# 4. Create the release
+  # 4. Create the release
   create-release:
     needs: update-release-images
     uses: atheo89/kubeflow/.github/workflows/hello.yaml@main
+    if: ${{ github.event.pull_request.merged == true && github.event.pull_request.head.ref == 'temp-v1.9t-${{ github.run_id }}' }}
     with:
-      input_var: "Geia" 
+      input_var: "Geia"
 
   
 
