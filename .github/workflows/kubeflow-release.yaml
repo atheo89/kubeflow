@@ -9,7 +9,7 @@ jobs:
       source: "main"
       target: "v1.9t"
 
-  # 2. Add a delay for 10 minutes in order to have the images ready on the quay.io alternatvly (Maybe use skopeo)
+  # 2. Add a delay for 10 minutes in order to have the images ready on quay.io
   wait-images-to-build-on-quay:
     needs: sync-release-branch
     runs-on: ubuntu-latest
@@ -26,8 +26,8 @@ jobs:
       organization: "atheo89"
       generate-pr: "true"
 
-  # 4. Check if PR is merged and create the release
-  check-pr-and-create-release:
+  # 4. Capture PR number
+  capture-pr-number:
     needs: update-release-images
     runs-on: ubuntu-latest
     steps:
@@ -43,6 +43,11 @@ jobs:
           echo "PR_NUMBER=$PR_NUMBER" >> $GITHUB_ENV
           echo "::set-output name=pr_number::$PR_NUMBER"
 
+  # 5. Check if PR is merged and create the release
+  create-release:
+    needs: capture-pr-number
+    runs-on: ubuntu-latest
+    steps:
       - name: Check if PR is merged
         id: check_pr
         run: |
