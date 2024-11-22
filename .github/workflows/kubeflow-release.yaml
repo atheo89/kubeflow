@@ -65,11 +65,14 @@ jobs:
             else
               echo "PR #$PR_NUMBER is merged!"
               echo "pr_merged=true" >> $GITHUB_ENV
+              echo "pr_merged=true" >> $GITHUB_OUTPUT
               exit 0
             fi
           done
   
           echo "Timed out waiting for PR #$PR_NUMBER to be merged."
+          echo "pr_merged=false" >> $GITHUB_ENV
+          echo "pr_merged=false" >> $GITHUB_OUTPUT
           exit 1
     outputs:
       pr_merged: ${{ steps.check.outputs.pr_merged }}
