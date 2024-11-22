@@ -36,19 +36,26 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          PR_NUMBER=$(gh pr list --state open --head atheo89:v1.9t --json number --jq '.[0].number')
+          # Specify the PR title to look for
+          PR_TITLE="[GHA] Update odh and notebook-controller with image"
+  
+          # Find the PR matching the title
+          PR_NUMBER=$(gh pr list --state all --search "$PR_TITLE" --json number,title --jq '.[] | select(.title | startswith(env.PR_TITLE)) | .number')
+          
           if [ -z "$PR_NUMBER" ]; then
-            echo "PR is already merged or doesn't exist."
+            echo "No matching PR found."
             echo "pr_merged=false" >> $GITHUB_ENV
           else
+            echo "Found PR #$PR_NUMBER with title matching '$PR_TITLE'."
             PR_STATE=$(gh pr view $PR_NUMBER --json merged --jq '.merged')
             if [ "$PR_STATE" = "true" ]; then
+              echo "PR #$PR_NUMBER is merged."
               echo "pr_merged=true" >> $GITHUB_ENV
             else
+              echo "PR #$PR_NUMBER is not merged yet."
               echo "pr_merged=false" >> $GITHUB_ENV
             fi
-          echo "pr_merged=${pr_merged}" > $GITHUB_ENV
-
+          fi
     outputs:
       pr_merged: ${{ steps.check.outputs.pr_merged }}
 
