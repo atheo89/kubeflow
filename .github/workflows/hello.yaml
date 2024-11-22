@@ -2,18 +2,12 @@ name: Say Hello until create release be ready
 on:
   workflow_dispatch:
     inputs:
-      base_tag:
+      input_var:
         description: "Base tag (e.g., v1.9.0)"
-        required: true
-      target_branch:
-        description: "Target branch for the release (e.g., v1.9-branch)"
         required: true
   workflow_call:
     inputs:
-      base_tag:
-        type: string
-        required: true
-      target_branch:
+      input_var:
         type: string
         required: true
 
