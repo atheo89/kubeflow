@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
     inputs:
       input_var:
-        description: "Base tag (e.g., v1.9.0)"
+        description: "Say Hi!"
         required: true
   workflow_call:
     inputs:
