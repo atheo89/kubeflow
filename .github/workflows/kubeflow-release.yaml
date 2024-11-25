@@ -2,7 +2,7 @@ name: Kubeflow Release Pipeline
 on:
   workflow_dispatch:
 env:
-  REPO_OWNER: opendatahub-io
+  REPO_OWNER: atheo89
   REPO_NAME: kubeflow 
   BRANCH_NAME: v1.9-branch
 
