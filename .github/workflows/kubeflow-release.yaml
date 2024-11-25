@@ -9,7 +9,7 @@ env:
 jobs:
   # 1. Sync opendatahub:v1.9-branch with opendatahub:main
   sync-main-to-release-branch:
-    uses: atheo89/kubeflow/.github/workflows/sync-branches-through-pr-2.yaml@main
+    uses: $REPO_OWNER/$REPO_NAME/.github/workflows/sync-branches-through-pr-2.yaml@main
     with:
       source: "main"
       target: "v1.9t"
