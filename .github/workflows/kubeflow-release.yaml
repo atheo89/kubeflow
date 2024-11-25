@@ -2,14 +2,14 @@ name: Kubeflow Release Pipeline
 on:
   workflow_dispatch:
 env:
-  REPO_OWNER: "atheo89"
-  REPO_NAME: "kubeflow" 
-  BRANCH_NAME: "v1.9-branch"
+  REPO_OWNER: atheo89
+  REPO_NAME: kubeflow
+  BRANCH_NAME: v1.9-branch
 
 jobs:
   # 1. Sync opendatahub:v1.9-branch with opendatahub:main
   sync-main-to-release-branch:
-    uses: ${REPO_OWNER}/${REPO_NAME}/.github/workflows/sync-branches-through-pr-2.yaml@main
+    uses: atheo89/kubeflow/.github/workflows/sync-branches-through-pr-2.yaml@main
     with:
       source: "main"
       target: "v1.9t"
