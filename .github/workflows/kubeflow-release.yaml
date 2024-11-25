@@ -30,9 +30,8 @@ jobs:
 
           # Get the latest Git hash from the v1.9t branch
           PAYLOAD=$(curl --silent -H 'Accept: application/vnd.github.v4.raw' https://api.github.com/repos/$REPO_OWNER/$REPO_NAME/commits?sha=$BRANCH_NAME&per_page=1)
-          GIT_HASH=$(echo "$PAYLOAD" | jq -r '.[0].sha' | cut -c 1-7)
-          echo "GIT_HASH=$GIT_HASH"
-
+          echo "GIT_HASH=$(echo $PAYLOAD | jq -r '.[0].sha[0:7]')"
+          
           # Images to check 
           IMAGES=(
             "quay.io/opendatahub/kubeflow-notebook-controller:1.9-${GIT_HASH}"
