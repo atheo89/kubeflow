@@ -36,15 +36,13 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Define the PR title to look for
+          # PR to look for
           PR_TITLE="[GHA-${{ github.run_id }}]"
-  
-          # Fetch matching PRs and save JSON
+          # Fetch matching PRs
           gh pr list --repo atheo89/kubeflow --state all --search "$PR_TITLE" --json number,title > pr_list.json
-          
           # Extract the PR number
           PR_NUMBER=$(jq -r '.[0].number' pr_list.json)
-          echo "Found PR number: $PR_NUMBER"
+          echo "PR number: $PR_NUMBER"
   
           if [ -z "$PR_NUMBER" ]; then
             echo "No matching PR found."
