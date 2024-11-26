@@ -2,12 +2,12 @@ name: Kubeflow Release Pipeline
 on:
   workflow_dispatch:
     inputs:
-      checkout-new-release:
-        description: "Checkout a new release?"
+      create-new-release:
+        description: "Create a new release?"
         required: true
         default: "true"
 env:
-  CHECKOUT_NEW_RELEASE: ${{ inputs.checkout-new-release }}
+  CREATE_NEW_RELEASE: ${{ inputs.create-new-release }}
   REPO_OWNER: opendatahub-io
   REPO_NAME: kubeflow 
   BRANCH_NAME: v1.9-branch
@@ -133,7 +133,7 @@ jobs:
   # 5. Create a release
   create-release:
     needs: [update-release-images, check-pr-merged]
-    if: ${{ needs.check-pr-merged.outputs.pr_merged == 'true' && inputs.checkout-new-release == 'true' }}
+    if: ${{ needs.check-pr-merged.outputs.pr_merged == 'true' && inputs.create-new-release == 'true' }}
     uses: atheo89/kubeflow/.github/workflows/hello.yaml@main
     with:
       input_var: "Geia"
