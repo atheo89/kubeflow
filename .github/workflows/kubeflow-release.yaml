@@ -133,7 +133,7 @@ jobs:
   # 5. Create a release
   create-release:
     needs: [update-release-images, check-pr-merged]
-    if: ${{ needs.check-pr-merged.outputs.pr_merged == 'true' && env.CHECKOUT_NEW_RELEASE == 'true' }}
+    if: ${{ needs.check-pr-merged.outputs.pr_merged == 'true' && inputs.checkout-new-release == 'true' }}
     uses: atheo89/kubeflow/.github/workflows/hello.yaml@main
     with:
       input_var: "Geia"
