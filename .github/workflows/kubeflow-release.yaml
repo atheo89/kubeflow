@@ -23,7 +23,6 @@ jobs:
 
   # 3. Once Images are availble updates the notebook controllers’ image tags
   update-release-images:
-    if: ${{ needs.wait-images-to-build-on-quay.outputs.images_ready == 'true' }}
     uses: atheo89/kubeflow/.github/workflows/notebook-controller-images-updater.yaml@main
     with: 
       branch-name: "v1.9t"
