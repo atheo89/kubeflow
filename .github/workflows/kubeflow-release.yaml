@@ -18,7 +18,7 @@ jobs:
     uses: atheo89/kubeflow/.github/workflows/sync-branches-through-pr-2.yaml@main
     with:
       source: "main"
-      target: $BRANCH_NAME
+      target:  ${{ env.BRANCH_NAME }}
 
   # 2. Poll for images to be available on quay.io
   wait-images-to-build-on-quay:
