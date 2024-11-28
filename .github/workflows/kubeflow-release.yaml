@@ -8,9 +8,9 @@ on:
         default: "true"
 env:
   CREATE_NEW_RELEASE: ${{ inputs.create-new-release }}
-  REPO_OWNER: opendatahub-io
+  REPO_OWNER: atheo89
   REPO_NAME: kubeflow 
-  BRANCH_NAME: v1.9-branch
+  BRANCH_NAME: v1.9t
 
 jobs:
   # 1. Sync opendatahub:v1.9-branch with opendatahub:main
