@@ -10,7 +10,7 @@ env:
   CREATE_NEW_RELEASE: ${{ inputs.create-new-release }}
   REPO_OWNER: opendatahub-io
   REPO_NAME: kubeflow 
-  BRANCH_NAME: "v1.9-branch"
+  BRANCH_NAME: v1.9-branch
 
 jobs:
   # 1. Sync opendatahub:v1.9-branch with opendatahub:main
@@ -18,7 +18,7 @@ jobs:
     uses: atheo89/kubeflow/.github/workflows/sync-branches-through-pr-2.yaml@main
     with:
       source: "main"
-      target: $BRANCH_NAME
+      target: v1.9-branch
 
   # 2. Poll for images to be available on quay.io
   wait-images-to-build-on-quay:
@@ -96,9 +96,7 @@ jobs:
           # PR to look for
           PR_TITLE="[GHA-${{ github.run_id }}]"
           # Fetch matching PRs
-          gh pr list --repo atheo89/kubeflow --state all --search "$PR_TITLE" --json number,title > pr_list.json
-          # Extract the PR number
-          PR_NUMBER=$(jq -r '.[0].number' pr_list.json)
+          PR_NUMBER=$(gh pr list --repo "$REPO_OWNER/$REPO_NAME" --state all --search "$PR_TITLE" --json number,title | jq -r '.[0].number')
           echo "PR number: $PR_NUMBER"
   
           if [ -z "$PR_NUMBER" ]; then
