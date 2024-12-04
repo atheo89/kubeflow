@@ -137,6 +137,14 @@ jobs:
               - components/odh-notebook-controller/config/base/params.env
               - components/odh-notebook-controller/makefile-vars.mk
 
+    - name: Trigger unit tests workflow
+      run: |
+        curl -X POST https://api.github.com/repos/${{ env.REPO_OWNER }}/$REPO_NAME/dispatches \
+          -H 'Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}' \
+          -H 'Content-Type: application/json' \
+          -d '{"event_type": "run-unit-tests"}'
+
+
     - name: Auto Merge Changes to Target Branch
       if: ${{ env.GENERATE_PR != 'true' }}
       run: |
