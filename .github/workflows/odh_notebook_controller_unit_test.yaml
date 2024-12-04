@@ -9,6 +9,8 @@ on:
     paths:
       - components/odh-notebook-controller/**
   workflow_dispatch:
+  repository_dispatch:
+    types: [run-unit-tests]
 
 jobs:
   build:
