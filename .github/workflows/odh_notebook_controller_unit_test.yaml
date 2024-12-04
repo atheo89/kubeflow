@@ -2,13 +2,13 @@ name: Run ODH Notebook Controller unit tests
 on:
   push:
   pull_request:
-    types: [opened, reopened]
-    branches:
-      - main
-      - v1.9t
     paths:
       - components/odh-notebook-controller/**
   workflow_dispatch:
+  workflow_run:
+    workflows: ["Update Notebook Controllers' Image Tags"]  
+    types:
+      - completed
 
 jobs:
   build:
