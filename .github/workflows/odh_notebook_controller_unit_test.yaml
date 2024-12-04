@@ -3,7 +3,7 @@ on:
   pull_request:
     branches:
       - main
-      - v1.9-branch
+      - v1.9t
     paths:
       - components/odh-notebook-controller/**
   workflow_dispatch:
