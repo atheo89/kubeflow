@@ -1,7 +1,9 @@
 name: Run ODH Notebook Controller unit tests
 on:
-  push:
   pull_request:
+    branches:
+      - main
+      - v1.9-branch
     paths:
       - components/odh-notebook-controller/**
   workflow_dispatch:
