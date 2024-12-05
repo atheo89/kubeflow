@@ -127,7 +127,7 @@ jobs:
             --head $REPO_OWNER:${{ env.TEMP_UPDATER_BRANCH }} \
             --base ${{ env.BRANCH_NAME }}
       env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.PAT_FOR_WORFLOWS }}
           pr_title: "[GHA-${{ github.run_id }}] Update odh and notebook-controller with image ${{ steps.version.outputs.VERSION }}-${{ steps.commit-id.outputs.GIT_HASH }}"
           pr_body: |
             :robot: This is an automated Pull Request created by `/.github/workflows/notebook-controller-images-updater.yaml`.
@@ -136,6 +136,7 @@ jobs:
               - components/notebook-controller/config/overlays/openshift/params.env
               - components/odh-notebook-controller/config/base/params.env
               - components/odh-notebook-controller/makefile-vars.mk
+
 
     - name: Auto Merge Changes to Target Branch
       if: ${{ env.GENERATE_PR != 'true' }}
