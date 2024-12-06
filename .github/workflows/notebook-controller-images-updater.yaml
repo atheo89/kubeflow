@@ -16,6 +16,9 @@ on:
         description: "Create PR?"
         required: true
         default: "true"
+      gh-token:
+        required: true
+        type: string
   workflow_call:
     inputs:
       branch-name:
@@ -44,6 +47,8 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+    env:
+      GH_TOKEN: ${{ inputs.gh-token }} # Set the token from input
 
     steps:
     - name: Checkout branch
@@ -51,12 +56,8 @@ jobs:
       with:
         ref: ${{ env.BRANCH_NAME }}
 
-    - name: Debug Inputs
-      run: |
-        echo "generate-pr: ${{ env.GENERATE_PR }}"
-        echo "branch-name: ${{ env.BRANCH_NAME }}"
-        echo "organization: ${{ env.REPO_OWNER }}"
-        echo "temp-branch-name: ${{ env.TEMP_UPDATER_BRANCH }}"
+    - name: Authenticate with GitHub CLI
+      run: echo "${GH_TOKEN}" | gh auth login --with-token
 
 
     - name: Checkout new branch
