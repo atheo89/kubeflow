@@ -37,7 +37,6 @@ env:
   BRANCH_NAME: ${{ inputs.branch-name }}
   GENERATE_PR: ${{ inputs.generate-pr }}
   REPO_NAME: kubeflow
-  GH_TOKEN: ${{ env.GH_TOKEN || secrets.SECRET_PAT }}
 
 jobs:
   update-notebook-controller-images:
@@ -55,6 +54,13 @@ jobs:
     - name: Debug Inputs
       run: |
         echo "Input token: ${{ env.GH_TOKEN }}"
+
+    - name: Set GH_TOKEN for standalone execution
+      id: set-gh-token
+      run: |
+        if [ -z "${{ env.GH_TOKEN }}" ]; then
+          echo "GH_TOKEN=${{ secrets.SECRET_PAT }}" >> $GITHUB_ENV
+        fi
 
     - name: Checkout new branch
       run: |
