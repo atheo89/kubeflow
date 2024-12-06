@@ -30,9 +30,6 @@ on:
         description: "Create PR?"
         required: true
         type: string
-      gh-token:
-        required: true
-        type: string
 
 env:
   REPO_OWNER: ${{ inputs.organization }}
@@ -40,7 +37,6 @@ env:
   BRANCH_NAME: ${{ inputs.branch-name }}
   GENERATE_PR: ${{ inputs.generate-pr }}
   REPO_NAME: kubeflow
-  GH_TOKEN: ${{ inputs.gh-token }} 
 
 jobs:
   update-notebook-controller-images:
