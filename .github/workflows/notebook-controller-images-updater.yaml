@@ -15,6 +15,10 @@ on:
         required: true
         default: "true"
   workflow_call:
+    secrets:
+      GH_TOKEN:
+        description: 'A token passed from the caller workflow'
+        required: true
     inputs:
       branch-name:
         description: "Provide name of the branch, used to commit changes"
@@ -28,6 +32,7 @@ on:
         description: "Create PR?"
         required: true
         type: string
+
 
 env:
   REPO_OWNER: ${{ inputs.organization }}
