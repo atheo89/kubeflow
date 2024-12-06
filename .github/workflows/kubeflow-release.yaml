@@ -50,6 +50,9 @@ jobs:
       branch-name: "v1.9t"
       organization: "atheo89"
       generate-pr: "true"
+    secrets:
+      GH_TOKEN: ${{ secrets.SECRET_PAT }}
+
       
   # 4. Check PR merged status
   check-pr-merged:

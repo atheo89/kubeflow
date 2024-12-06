@@ -1,5 +1,3 @@
----
-# This workflow automatically updates the notebook controllers' image tags
 name: Update Notebook Controllers' Image Tags
 on:
   workflow_dispatch:
@@ -17,6 +15,10 @@ on:
         required: true
         default: "true"
   workflow_call:
+    secrets:
+      GH_TOKEN:
+        description: 'A token passed from the caller workflow'
+        required: true
     inputs:
       branch-name:
         description: "Provide name of the branch, used to commit changes"
@@ -31,12 +33,14 @@ on:
         required: true
         type: string
 
+
 env:
   REPO_OWNER: ${{ inputs.organization }}
   TEMP_UPDATER_BRANCH: temp-${{ inputs.branch-name }}-${{ github.run_id }}
   BRANCH_NAME: ${{ inputs.branch-name }}
   GENERATE_PR: ${{ inputs.generate-pr }}
   REPO_NAME: kubeflow
+  GH_TOKEN: ${{ secrets.GH_TOKEN }}  # Ensure this is passed as an env variable
 
 jobs:
   update-notebook-controller-images:
@@ -53,11 +57,14 @@ jobs:
 
     - name: Debug Inputs
       run: |
-        echo "generate-pr: ${{ env.GENERATE_PR }}"
-        echo "branch-name: ${{ env.BRANCH_NAME }}"
-        echo "organization: ${{ env.REPO_OWNER }}"
-        echo "temp-branch-name: ${{ env.TEMP_UPDATER_BRANCH }}"
+        echo "Input token: ${{ env.GH_TOKEN }}"
 
+    - name: Set GH_TOKEN for standalone execution
+      id: set-gh-token
+      run: |
+        if [ -z "${{ env.GH_TOKEN }}" ]; then
+          echo "GH_TOKEN=${{ secrets.SECRET_PAT }}" >> $GITHUB_ENV
+        fi
 
     - name: Checkout new branch
       run: |
@@ -86,7 +93,6 @@ jobs:
         else
           VERSION=$(echo "${{ env.BRANCH_NAME }}" | sed -E 's/^v([0-9]+\.[0-9]+)-.*/\1/')
 
-          # Check if VERSION is empty, then assign the full branch name
           if [[ -z "$VERSION" ]]; then
             VERSION="${{ env.BRANCH_NAME }}"
           fi
@@ -118,8 +124,8 @@ jobs:
           echo "There were no changes detected on ${{ env.BRANCH_NAME }}"
         fi
 
-    - name: PR Cretation
-      if: ${{  env.GENERATE_PR == 'true' }}
+    - name: PR Creation
+      if: ${{ env.GENERATE_PR == 'true' }}
       run: |
           gh pr create --repo https://github.com/$REPO_OWNER/$REPO_NAME.git \
             --title "$pr_title" \
@@ -127,7 +133,7 @@ jobs:
             --head $REPO_OWNER:${{ env.TEMP_UPDATER_BRANCH }} \
             --base ${{ env.BRANCH_NAME }}
       env:
-          GH_TOKEN: ${{ secrets.PAT_FOR_WORFLOWS }}
+          GH_TOKEN: ${{ env.GH_TOKEN }}
           pr_title: "[GHA-${{ github.run_id }}] Update odh and notebook-controller with image ${{ steps.version.outputs.VERSION }}-${{ steps.commit-id.outputs.GIT_HASH }}"
           pr_body: |
             :robot: This is an automated Pull Request created by `/.github/workflows/notebook-controller-images-updater.yaml`.
