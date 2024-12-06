@@ -107,4 +107,4 @@ jobs:
     if: ${{ needs.check-pr-merged.outputs.pr_merged == 'true' && inputs.create-new-release == 'true' }}
     uses: atheo89/kubeflow/.github/workflows/create-release.yaml@main
     with:
-      target_branch: "v1.9-branch"
+      target_branch: "v1.9t"
