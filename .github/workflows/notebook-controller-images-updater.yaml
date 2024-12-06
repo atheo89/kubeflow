@@ -57,7 +57,7 @@ jobs:
         ref: ${{ env.BRANCH_NAME }}
 
     - name: Authenticate with GitHub CLI
-      run: echo "${GH_TOKEN}" | gh auth login --with-token
+      run: echo "${GH_TOKEN}" 
 
 
     - name: Checkout new branch
