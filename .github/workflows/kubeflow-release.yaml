@@ -45,15 +45,12 @@ jobs:
   update-release-images:
     needs: wait-images-are-ready-on-quay
     if: ${{ needs.wait-images-are-ready-on-quay.outputs.images_ready == 'true' }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Call Notebook Controller Images Updater Workflow
-        uses: atheo89/kubeflow/.github/workflows/notebook-controller-images-updater.yaml@main
-        with: 
-          branch-name: "v1.9t"
-          organization: "atheo89"
-          generate-pr: "true"
-          GH_TOKEN: ${{ secrets.SECRET_PAT }}
+    uses: atheo89/kubeflow/.github/workflows/notebook-controller-images-updater.yaml@main
+    with: 
+      branch-name: "v1.9t"
+      organization: "atheo89"
+      generate-pr: "true"
+      GH_TOKEN: ${{ secrets.SECRET_PAT }}
 
       
   # 4. Check PR merged status
