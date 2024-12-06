@@ -83,6 +83,6 @@ jobs:
   create-release:
     needs: [update-release-images, check-pr-merged]
     if: ${{ needs.check-pr-merged.outputs.pr_merged == 'true' && inputs.create-new-release == 'true' }}
-    uses: opendatahub-io/kubeflow/.github/workflows/create-release.yaml@main
+    uses: .github/workflows/create-release.yaml@main
     with:
       target_branch: "v1.9-branch"
