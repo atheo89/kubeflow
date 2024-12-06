@@ -16,9 +16,6 @@ on:
         description: "Create PR?"
         required: true
         default: "true"
-      gh-token:
-        required: true
-        type: environment
   workflow_call:
     inputs:
       branch-name:
@@ -31,6 +28,9 @@ on:
         type: string
       generate-pr:
         description: "Create PR?"
+        required: true
+        type: string
+      gh-token:
         required: true
         type: string
 
