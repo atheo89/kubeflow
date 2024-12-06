@@ -45,7 +45,7 @@ jobs:
   update-release-images:
     needs: wait-images-are-ready-on-quay
     if: ${{ needs.wait-images-are-ready-on-quay.outputs.images_ready == 'true' }}
-    runs-on: ubuntu-latest  # Ensure this job has a runner to execute the steps
+    runs-on: ubuntu-latest
     steps:
       - name: Call Notebook Controller Images Updater Workflow
         uses: atheo89/kubeflow/.github/workflows/notebook-controller-images-updater.yaml@main
