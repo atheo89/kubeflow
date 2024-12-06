@@ -53,7 +53,6 @@ jobs:
           branch-name: "v1.9t"
           organization: "atheo89"
           generate-pr: "true"
-        env:
           GH_TOKEN: ${{ secrets.SECRET_PAT }}
 
       
