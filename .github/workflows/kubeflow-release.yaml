@@ -20,9 +20,31 @@ jobs:
       source: "main"
       target: "v1.9t"
 
+  # 2. Poll for images to be available on quay.io the readiness of the images usually takes ~10 mins
+  wait-images-are-ready-on-quay:
+    needs: sync-main-to-release-branch
+    runs-on: ubuntu-latest
+    outputs:
+      images_ready: ${{ steps.check-images.outputs.images_ready }}
+    steps:
+      - name: Poll for images availability
+        id: check-images
+        run: |
+
+          echo "Sleeping for 5 minutes before starting polling..."
+          sleep 10
+
+          echo "images_ready=true" >> $GITHUB_ENV
+          echo "images_ready=true" >> $GITHUB_OUTPUT
+
+      - name: Images are ready
+        if: ${{ env.images_ready == 'true' }}
+        run: echo "All images are ready. Proceeding to the next step."
 
   # 3. Once Images are availble updates the notebook controllers’ image tags
   update-release-images:
+    needs: wait-images-are-ready-on-quay
+    if: ${{ needs.wait-images-are-ready-on-quay.outputs.images_ready == 'true' }}
     uses: atheo89/kubeflow/.github/workflows/notebook-controller-images-updater.yaml@main
     with: 
       branch-name: "v1.9t"
