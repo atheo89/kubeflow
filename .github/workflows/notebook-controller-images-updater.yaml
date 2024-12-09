@@ -16,7 +16,7 @@ on:
         default: "true"
   workflow_call:
     secrets:
-      GHA_SECRET_PAT:
+      GH_TOKEN:
         description: 'A token passed from the caller workflow'
         required: true
     inputs:
@@ -57,7 +57,7 @@ jobs:
 
     - name: Debug Inputs
       run: |
-        echo "Input token: ${{ env.GHA_SECRET_PAT }}"
+        echo "Input token: ${{ env.GH_TOKEN }}"
 
     - name: Set GH_TOKEN for standalone execution
       id: set-gh-token
