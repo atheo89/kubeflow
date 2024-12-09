@@ -55,7 +55,7 @@ jobs:
       organization: "atheo89"
       generate-pr: "true"
     secrets:
-      GH_TOKEN: ${{ secrets.SECRET_PAT }}
+      GH_TOKEN: ${{ secrets.TEST_ID_PAT }}
 
       
   # 4. Check PR merged status
