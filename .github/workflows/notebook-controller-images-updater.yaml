@@ -133,7 +133,7 @@ jobs:
             --head $REPO_OWNER:${{ env.TEMP_UPDATER_BRANCH }} \
             --base ${{ env.BRANCH_NAME }}
       env:
-          GHA_SECRET_PAT: ${{ env.GHA_SECRET_PAT }}
+          GH_TOKEN: ${{ env.GH_TOKEN }}
           pr_title: "[GHA-${{ github.run_id }}] Update odh and notebook-controller with image ${{ steps.version.outputs.VERSION }}-${{ steps.commit-id.outputs.GIT_HASH }}"
           pr_body: |
             :robot: This is an automated Pull Request created by `/.github/workflows/notebook-controller-images-updater.yaml`.
