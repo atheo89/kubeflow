@@ -63,7 +63,7 @@ jobs:
       id: set-gh-token
       run: |
         if [ -z "${{ env.GH_TOKEN }}" ]; then
-          echo "GH_TOKEN=${{ secrets.SECRET_PAT }}" >> $GITHUB_ENV
+          echo "GH_TOKEN=${{ secrets.TEST_ID_PAT }}" >> $GITHUB_ENV
         fi
 
     - name: Checkout new branch
