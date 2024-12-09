@@ -22,7 +22,7 @@ jobs:
     uses: atheo89/kubeflow/.github/workflows/sync-branches-through-pr-2.yaml@main
     with:
       source: "main"
-      target: ${{ env.BRANCH_NAME }}
+      target: "v1.9t"
 
   # 2. Poll for images to be available on quay.io the readiness of the images usually takes ~10 mins
   wait-images-are-ready-on-quay:
