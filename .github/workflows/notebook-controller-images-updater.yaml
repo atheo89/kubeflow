@@ -16,7 +16,7 @@ on:
         default: "true"
   workflow_call:
     secrets:
-      GH_TOKEN:
+      GHA_SECRET_PAT:
         description: 'A token passed from the caller workflow'
         required: true
     inputs:
@@ -40,7 +40,7 @@ env:
   BRANCH_NAME: ${{ inputs.branch-name }}
   GENERATE_PR: ${{ inputs.generate-pr }}
   REPO_NAME: kubeflow
-  GH_TOKEN: ${{ secrets.GH_TOKEN }}  # Ensure this is passed as an env variable
+  GHA_SECRET_PAT: ${{ secrets.GHA_SECRET_PAT }}  # Ensure this is passed as an env variable
 
 jobs:
   update-notebook-controller-images:
@@ -57,13 +57,13 @@ jobs:
 
     - name: Debug Inputs
       run: |
-        echo "Input token: ${{ env.GH_TOKEN }}"
+        echo "Input token: ${{ env.GHA_SECRET_PAT }}"
 
     - name: Set GH_TOKEN for standalone execution
       id: set-gh-token
       run: |
-        if [ -z "${{ env.GH_TOKEN }}" ]; then
-          echo "GH_TOKEN=${{ secrets.TEST_ID_PAT }}" >> $GITHUB_ENV
+        if [ -z "${{ env.GHA_SECRET_PAT }}" ]; then
+          echo "GH_TOKEN=${{ secrets.SECRET_PAT }}" >> $GITHUB_ENV
         fi
 
     - name: Checkout new branch
@@ -133,7 +133,7 @@ jobs:
             --head $REPO_OWNER:${{ env.TEMP_UPDATER_BRANCH }} \
             --base ${{ env.BRANCH_NAME }}
       env:
-          GH_TOKEN: ${{ env.GH_TOKEN }}
+          GHA_SECRET_PAT: ${{ env.GHA_SECRET_PAT }}
           pr_title: "[GHA-${{ github.run_id }}] Update odh and notebook-controller with image ${{ steps.version.outputs.VERSION }}-${{ steps.commit-id.outputs.GIT_HASH }}"
           pr_body: |
             :robot: This is an automated Pull Request created by `/.github/workflows/notebook-controller-images-updater.yaml`.
