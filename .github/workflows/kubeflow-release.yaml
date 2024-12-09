@@ -111,7 +111,7 @@ jobs:
   # 5. Create a release
   create-release:
     needs: [update-release-images, check-pr-merged]
-    if: ${{ needs.check-pr-merged.outputs.pr_merged == 'true' && env.CREATE_NEW_RELEASE == 'true'  }}
+    if: ${{ needs.check-pr-merged.outputs.pr_merged == 'true' && inputs.release-type == 'Release' }}
     uses: atheo89/kubeflow/.github/workflows/create-release.yaml@main
     with:
       target_branch: "v1.9t"
