@@ -19,17 +19,10 @@ env:
 jobs:
   # 1. Sync opendatahub:v1.9-branch with opendatahub:main
   sync-main-to-release-branch:
-    env:
-      BRANCH_NAME: ${{ env.BRANCH_NAME }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Set Target Branch
-        run: echo "BRANCH_NAME=${{ env.BRANCH_NAME }}" >> $GITHUB_ENV
-      - name: Run Workflow
-        uses: atheo89/kubeflow/.github/workflows/sync-branches-through-pr-2.yaml@main
-        with:
-          source: "main"
-          target: ${{ env.BRANCH_NAME }}
+    uses: atheo89/kubeflow/.github/workflows/sync-branches-through-pr-2.yaml@main
+    with:
+      source: "main"
+      target: ${{ env.BRANCH_NAME }}
 
   # 2. Poll for images to be available on quay.io the readiness of the images usually takes ~10 mins
   wait-images-are-ready-on-quay:
