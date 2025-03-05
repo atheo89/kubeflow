@@ -42,19 +42,6 @@ func (r *OpenshiftNotebookReconciler) syncRuntimeImagesConfigMap(ctx context.Con
 
 	log := r.Log.WithValues("namespace", notebookNamespace)
 
-	// // Create a dynamic client
-	// config, err := rest.InClusterConfig()
-	// if err != nil {
-	// 	log.Error(err, "Error creating cluster config")
-	// 	return err
-	// }
-	// dynamicClient, err := dynamic.NewForConfig(config)
-	// if err != nil {
-	// 	log.Error(err, "Error creating dynamic client")
-	// 	return err
-	// }
-
-	config := r.Config
 	// Create a dynamic client
 	dynamicClient, err := dynamic.NewForConfig(config)
 	if err != nil {

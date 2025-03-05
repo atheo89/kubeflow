@@ -669,11 +669,6 @@ var _ = Describe("The Openshift Notebook controller", func() {
 			key := types.NamespacedName{Name: Name, Namespace: Namespace}
 			Expect(cli.Get(ctx, key, actualNotebook)).Should(Succeed())
 
-			By("By fetching the created Notebook for debugging")
-			actualNotebook := &nbv1.Notebook{}
-			key := types.NamespacedName{Name: Name, Namespace: Namespace}
-			Expect(cli.Get(ctx, key, actualNotebook)).Should(Succeed())
-
 			By("By checking that the webhook has injected the sidecar container")
 			Expect(actualNotebook.Spec.Template.Spec.Volumes).To(ConsistOf(expectedNotebook.Spec.Template.Spec.Volumes))
 			Expect(actualNotebook.Spec.Template.Spec.Containers).To(ConsistOf(expectedNotebook.Spec.Template.Spec.Containers))
