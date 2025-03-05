@@ -114,7 +114,7 @@ run: manifests generate fmt vet certificates ktunnel ## Run a controller from yo
 	go run ./main.go
 
 .PHONY: docker-build
-docker-build: test ## Build docker image with the manager.
+docker-build:  ## Build docker image with the manager.
 	cd ../ && ${CONTAINER_ENGINE} build . -t ${IMG}:${TAG} -f odh-notebook-controller/Dockerfile
 
 .PHONY: docker-push
