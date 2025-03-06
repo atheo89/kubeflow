@@ -598,7 +598,6 @@ var _ = Describe("The Openshift Notebook controller", func() {
 					"notebooks.opendatahub.io/inject-oauth":     "true",
 					"notebooks.opendatahub.io/foo":              "bar",
 					"notebooks.opendatahub.io/oauth-logout-url": "https://example.notebook-url/notebook/" + Namespace + "/" + Name,
-					"kubeflow-resource-stopped":                 "odh-notebook-controller-lock",
 				},
 			},
 			Spec: nbv1.NotebookSpec{
@@ -664,6 +663,11 @@ var _ = Describe("The Openshift Notebook controller", func() {
 
 			By("By creating a new Notebook")
 			Expect(cli.Create(ctx, notebook)).Should(Succeed())
+
+			By("By fetching the created Notebook for debugging")
+			actualNotebook := &nbv1.Notebook{}
+			key := types.NamespacedName{Name: Name, Namespace: Namespace}
+			Expect(cli.Get(ctx, key, actualNotebook)).Should(Succeed())
 
 			By("By fetching the created Notebook for debugging")
 			actualNotebook := &nbv1.Notebook{}
