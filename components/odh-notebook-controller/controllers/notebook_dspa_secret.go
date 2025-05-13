@@ -180,8 +180,6 @@ func extractElyraRuntimeConfigInfo(ctx context.Context, dynamicClient dynamic.In
 			"cos_username":        cosUsername,
 			"cos_password":        cosPassword,
 			"cos_secret":          cosSecret,
-			//TODO: Remove this once everything is in place
-			"debug": "true",
 		},
 	}, nil
 }
@@ -202,9 +200,8 @@ func (r *OpenshiftNotebookReconciler) NewElyraRuntimeConfigSecret(ctx context.Co
 		log.Error(err, "Failed to extract Elyra runtime config info")
 		return nil
 	}
+	// In case No DSPA present in namespace skipping Elyra secret creation as DSPA is not present
 	if dspData == nil {
-		// In case No DSPA present in namespace skipping Elyra secret creation as DSPA is not present
-		//log.Info("No DSPA present in namespace; skipping Elyra secret creation")
 		return nil
 	}
 
@@ -302,14 +299,11 @@ func (r *OpenshiftNotebookReconciler) ReconcileElyraRuntimeConfigSecret(notebook
 	// Initialize logger format
 	log := r.Log.WithValues("notebook", notebook.Name, "namespace", notebook.Namespace)
 
-	// TODO: These secret should be created only if identify DSPA object
-
 	// Generate the desired Elyra runtime config secret
 	desiredSecret := r.NewElyraRuntimeConfigSecret(ctx, r.Config, r.Client, notebook, r.Namespace, log)
 
-	// Skip secret reconciliation if DSPA route was not found for now then should check for the dspa cr itself
+	// In case No DSPA present in namespace skipping Elyra secret creation as DSPA is not present
 	if desiredSecret == nil {
-		log.Info("Skipping Elyra runtime config secret creation as no DSPA is configured in this namespace")
 		return nil
 	}
 
