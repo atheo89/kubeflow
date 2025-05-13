@@ -3,7 +3,7 @@ include makefile-vars.mk
 
 # Image URL to use all building/pushing image targets
 IMG ?= ghcr.io/atheo89/odh-notebook-controller
-TAG ?= dspa-secret-3
+TAG ?= dspa-secret-1
 ARCH ?= linux/amd64
 
 KF_IMG ?= quay.io/opendatahub/kubeflow-notebook-controller

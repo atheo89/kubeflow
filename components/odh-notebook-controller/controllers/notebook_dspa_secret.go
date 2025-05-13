@@ -59,7 +59,6 @@ func extractElyraRuntimeConfigInfo(ctx context.Context, dynamicClient dynamic.In
 	dspaObj, err := dynamicClient.Resource(dspa).Namespace(notebook.Namespace).Get(ctx, "dspa", metav1.GetOptions{})
 	if err != nil {
 		if apierrs.IsNotFound(err) {
-			log.Info("DSPA CR not found; skipping Elyra config generation")
 			return nil, nil
 		}
 		log.Error(err, "Failed to get DSPA CR")
@@ -270,7 +269,7 @@ func MountElyraRuntimeConfigSecret(ctx context.Context, client client.Client, no
 		*volumes = append(*volumes, secretVolume)
 	}
 
-	log.Info("Injecting Elyra runtime volume into notebook", "notebook", notebook.Name, "namespace", notebook.Namespace)
+	log.Info("Injecting elyra-dsp-details volume into notebook", "notebook", notebook.Name, "namespace", notebook.Namespace)
 
 	// Append the volume mount to all containers
 	for i, container := range notebook.Spec.Template.Spec.Containers {
@@ -302,7 +301,7 @@ func (r *OpenshiftNotebookReconciler) ReconcileElyraRuntimeConfigSecret(notebook
 	// Generate the desired Elyra runtime config secret
 	desiredSecret := r.NewElyraRuntimeConfigSecret(ctx, r.Config, r.Client, notebook, r.Namespace, log)
 
-	// In case No DSPA present in namespace skipping Elyra secret creation as DSPA is not present
+	// Skip secret reconciliation if DSPA route was not found for now then should check for the dspa cr itself
 	if desiredSecret == nil {
 		return nil
 	}
