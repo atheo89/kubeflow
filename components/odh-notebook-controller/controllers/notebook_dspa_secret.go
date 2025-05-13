@@ -37,7 +37,7 @@ import (
 // TODO: Fix the name from ds-pipeline-config-by-nbcxxx to ds-pipeline-config once everything is in place
 const (
 	elyraRuntimeSecretNamePrefix = "ds-pipeline-config-"
-	//TODO: Remove the last / once everything is ready
+	//TODO: Remove the last / and place the proper name on the volume once everything is ready
 	elyraRuntimeMountPath  = "/opt/app-root/runtimes/"
 	elyraRuntimeVolumeName = "elyra-dsp-details-by-nbc"
 )
