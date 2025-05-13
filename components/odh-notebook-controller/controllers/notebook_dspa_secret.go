@@ -36,7 +36,7 @@ import (
 
 // TODO: Fix the name from ds-pipeline-config-by-nbcxxx to ds-pipeline-config once everything is in place
 const (
-	elyraRuntimeSecretName = "ds-pipeline-config-by-nbc"
+	elyraRuntimeSecretNamePrefix = "ds-pipeline-config-"
 	//TODO: Remove the last / once everything is ready
 	elyraRuntimeMountPath  = "/opt/app-root/runtimes/"
 	elyraRuntimeVolumeName = "elyra-dsp-details-by-nbc"
@@ -58,6 +58,7 @@ func extractElyraRuntimeConfigInfo(ctx context.Context, dynamicClient dynamic.In
 	// Fetch DSPA CR
 	dspaObj, err := dynamicClient.Resource(dspa).Namespace(notebook.Namespace).Get(ctx, "dspa", metav1.GetOptions{})
 	if err != nil {
+		// DSPA CR not found; skipping Elyra config generation
 		if apierrs.IsNotFound(err) {
 			return nil, nil
 		}
@@ -195,7 +196,6 @@ func (r *OpenshiftNotebookReconciler) NewElyraRuntimeConfigSecret(ctx context.Co
 
 	dspData, err := extractElyraRuntimeConfigInfo(ctx, dynamicClient, client, notebook, log)
 	if err != nil {
-		// In case there is some issue on info fetching return error Info on the logs
 		log.Error(err, "Failed to extract Elyra runtime config info")
 		return nil
 	}
@@ -210,7 +210,7 @@ func (r *OpenshiftNotebookReconciler) NewElyraRuntimeConfigSecret(ctx context.Co
 		log.Error(err, "Failed to marshal DSPA config to JSON")
 		return nil
 	}
-
+	elyraRuntimeSecretName := elyraRuntimeSecretNamePrefix + notebook.Name
 	// Create a Kubernetes secret to store the Elyra runtime config data
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -226,6 +226,8 @@ func (r *OpenshiftNotebookReconciler) NewElyraRuntimeConfigSecret(ctx context.Co
 }
 
 func MountElyraRuntimeConfigSecret(ctx context.Context, client client.Client, notebook *nbv1.Notebook, log logr.Logger) error {
+
+	elyraRuntimeSecretName := elyraRuntimeSecretNamePrefix + notebook.Name
 
 	// Retrieve the Secret
 	secret := &corev1.Secret{}
