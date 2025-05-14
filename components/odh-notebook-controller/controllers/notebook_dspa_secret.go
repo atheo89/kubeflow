@@ -185,36 +185,33 @@ func extractElyraRuntimeConfigInfo(ctx context.Context, dynamicClient dynamic.In
 }
 
 // NewElyraRuntimeConfigSecret defines the desired ElyraRuntimeConfig secret object
-func (r *OpenshiftNotebookReconciler) NewElyraRuntimeConfigSecret(ctx context.Context, dynamicConfig *rest.Config, client client.Client, notebook *nbv1.Notebook, controllerNamespace string, log logr.Logger) *corev1.Secret {
-
-	// Create a dynamic client to be able to fetch dspa and dasboard CRs
+func (r *OpenshiftNotebookReconciler) NewElyraRuntimeConfigSecret(ctx context.Context, dynamicConfig *rest.Config, c client.Client, notebook *nbv1.Notebook, controllerNamespace string, log logr.Logger) error {
 	dynamicClient, err := dynamic.NewForConfig(dynamicConfig)
 	if err != nil {
 		log.Error(err, "Failed to create dynamic client")
-		return nil
+		return err
 	}
 
-	dspData, err := extractElyraRuntimeConfigInfo(ctx, dynamicClient, client, notebook, log)
+	dspData, err := extractElyraRuntimeConfigInfo(ctx, dynamicClient, c, notebook, log)
 	if err != nil {
 		log.Error(err, "Failed to extract Elyra runtime config info")
-		return nil
+		return err
 	}
-	// In case No DSPA present in namespace skipping Elyra secret creation as DSPA is not present
+	// // In case No DSPA present in namespace skipping Elyra secret creation as DSPA is not present
 	if dspData == nil {
 		return nil
 	}
 
-	// Marshal the map to JSON
 	dspJSON, err := json.Marshal(dspData)
 	if err != nil {
 		log.Error(err, "Failed to marshal DSPA config to JSON")
-		return nil
+		return err
 	}
-	elyraRuntimeSecretName := elyraRuntimeSecretNamePrefix + notebook.Name
-	// Create a Kubernetes secret to store the Elyra runtime config data
-	return &corev1.Secret{
+
+	elyraSecretName := elyraRuntimeSecretNamePrefix + notebook.Name
+	desiredSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      elyraRuntimeSecretName,
+			Name:      elyraSecretName,
 			Namespace: notebook.Namespace,
 			Labels:    map[string]string{"opendatahub.io/managed-by": "workbenches"},
 		},
@@ -223,18 +220,49 @@ func (r *OpenshiftNotebookReconciler) NewElyraRuntimeConfigSecret(ctx context.Co
 			"odh_dsp.json": dspJSON,
 		},
 	}
+
+	// Try to fetch existing secret
+	existingSecret := &corev1.Secret{}
+	err = c.Get(ctx, types.NamespacedName{Name: elyraSecretName, Namespace: notebook.Namespace}, existingSecret)
+	if err != nil {
+		if apierrs.IsNotFound(err) {
+			log.Info("Creating Elyra runtime config secret", "name", elyraSecretName)
+			if err := ctrl.SetControllerReference(notebook, desiredSecret, r.Scheme); err != nil {
+				log.Error(err, "Failed to set owner reference for Elyra runtime secret")
+				return err
+			}
+			if err := c.Create(ctx, desiredSecret); err != nil && !apierrs.IsAlreadyExists(err) {
+				log.Error(err, "Failed to create Elyra runtime config secret")
+				return err
+			}
+			return nil
+		}
+		log.Error(err, "Failed to get Elyra runtime config secret")
+		return err
+	}
+
+	// Check if update is needed
+	if !reflect.DeepEqual(existingSecret.Data, desiredSecret.Data) {
+		log.Info("Updating Elyra runtime config secret", "name", elyraSecretName)
+		existingSecret.Data = desiredSecret.Data
+		if err := c.Update(ctx, existingSecret); err != nil {
+			log.Error(err, "Failed to update Elyra runtime config secret")
+			return err
+		}
+	}
+
+	return nil
 }
 
 func MountElyraRuntimeConfigSecret(ctx context.Context, client client.Client, notebook *nbv1.Notebook, log logr.Logger) error {
 
 	elyraRuntimeSecretName := elyraRuntimeSecretNamePrefix + notebook.Name
-
 	// Retrieve the Secret
 	secret := &corev1.Secret{}
 	err := client.Get(ctx, types.NamespacedName{Name: elyraRuntimeSecretName, Namespace: notebook.Namespace}, secret)
 	if err != nil {
 		if apierrs.IsNotFound(err) {
-			log.Info("Secret does not exist", "Secret", elyraRuntimeSecretName)
+			log.Info("Secret is not available yet", "Secret", elyraRuntimeSecretName)
 			return nil
 		}
 		log.Error(err, "Error retrieving Secret", "Secret", elyraRuntimeSecretName)
@@ -296,54 +324,6 @@ func MountElyraRuntimeConfigSecret(ctx context.Context, client client.Client, no
 // ReconcileElyraRuntimeConfigSecret will manage the secret reconciliation
 // required by the notebook Elyra capabilities
 func (r *OpenshiftNotebookReconciler) ReconcileElyraRuntimeConfigSecret(notebook *nbv1.Notebook, ctx context.Context) error {
-
-	// Initialize logger format
 	log := r.Log.WithValues("notebook", notebook.Name, "namespace", notebook.Namespace)
-
-	// Generate the desired Elyra runtime config secret
-	desiredSecret := r.NewElyraRuntimeConfigSecret(ctx, r.Config, r.Client, notebook, r.Namespace, log)
-
-	// Skip secret reconciliation if DSPA route was not found for now then should check for the dspa cr itself
-	if desiredSecret == nil {
-		return nil
-	}
-
-	// Create the Elyra runtime config secret if it does not already exist
-	foundSecret := &corev1.Secret{}
-	err := r.Get(ctx, types.NamespacedName{
-		Name:      desiredSecret.GetName(),
-		Namespace: notebook.GetNamespace(),
-	}, foundSecret)
-	if err != nil {
-		if apierrs.IsNotFound(err) {
-			log.Info("Creating Elyra runtime config secret")
-			// Add metadata.ownerReferences so the secret is deleted when the notebook is deleted
-			err = ctrl.SetControllerReference(notebook, desiredSecret, r.Scheme)
-			if err != nil {
-				log.Error(err, "Unable to add OwnerReference to the Elyra runtime config secret")
-				return err
-			}
-			// Create the Elyra runtime config secret in the OpenShift cluster
-			err = r.Create(ctx, desiredSecret)
-			if err != nil && !apierrs.IsAlreadyExists(err) {
-				log.Error(err, "Unable to create the Elyra runtime config secret")
-				return err
-			}
-		} else {
-			log.Error(err, "Unable to fetch the Elyra runtime config secret")
-			return err
-		}
-	}
-
-	// Secret already exists; check if data has changed
-	if !reflect.DeepEqual(foundSecret.Data, desiredSecret.Data) {
-		log.Info("Updating existing Elyra runtime config secret with new data")
-		foundSecret.Data = desiredSecret.Data
-		if err := r.Update(ctx, foundSecret); err != nil {
-			log.Error(err, "Failed to update Elyra runtime config secret")
-			return err
-		}
-	}
-
-	return nil
+	return r.NewElyraRuntimeConfigSecret(ctx, r.Config, r.Client, notebook, r.Namespace, log)
 }
