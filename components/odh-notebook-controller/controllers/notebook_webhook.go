@@ -466,9 +466,9 @@ func (w *NotebookWebhook) maybeRestartRunningNotebook(ctx context.Context, req a
 		return mutatedNotebook, NoPendingUpdates, nil
 	}
 
-	// If generation is 1, allow updates on initial generation of the notebook
+	// If generation is 1, allow updates on initial generation of the notebook CR
 	if updatedNotebook.GetGeneration() == 1 {
-		log.Info("Not blocking update, initial generation - treating as first-time mutation")
+		log.Info("Not blocking update, this is the initial generation of the Notebook")
 		return mutatedNotebook, NoPendingUpdates, nil
 	}
 

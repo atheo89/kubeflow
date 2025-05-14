@@ -19,6 +19,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"reflect"
 
 	"github.com/go-logr/logr"
 	nbv1 "github.com/kubeflow/kubeflow/components/notebook-controller/api/v1"
@@ -34,7 +35,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// TODO: Fix the name from ds-pipeline-config-by-nbcxxx to ds-pipeline-config once everything is in place
 const (
 	elyraRuntimeSecretNamePrefix = "ds-pipeline-config-"
 	//TODO: Remove the last / and place the proper name on the volume once everything is ready
@@ -241,7 +241,7 @@ func MountElyraRuntimeConfigSecret(ctx context.Context, client client.Client, no
 		return err
 	}
 
-	// Check if the ConfigMap is empty
+	// Check if the Secret is empty
 	if len(secret.Data) == 0 {
 		log.Info("Secret is empty, skipping volume mount", "Secret", elyraRuntimeSecretName)
 		return nil
@@ -331,6 +331,16 @@ func (r *OpenshiftNotebookReconciler) ReconcileElyraRuntimeConfigSecret(notebook
 			}
 		} else {
 			log.Error(err, "Unable to fetch the Elyra runtime config secret")
+			return err
+		}
+	}
+
+	// Secret already exists; check if data has changed
+	if !reflect.DeepEqual(foundSecret.Data, desiredSecret.Data) {
+		log.Info("Updating existing Elyra runtime config secret with new data")
+		foundSecret.Data = desiredSecret.Data
+		if err := r.Update(ctx, foundSecret); err != nil {
+			log.Error(err, "Failed to update Elyra runtime config secret")
 			return err
 		}
 	}
