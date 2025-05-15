@@ -37,11 +37,11 @@ import (
 
 const (
 	elyraRuntimeSecretNamePrefix = "ds-pipeline-config-"
-	//TODO: Remove the last / and place the proper name on the volume once everything is ready
-	elyraRuntimeMountPath  = "/opt/app-root/runtimes/"
-	elyraRuntimeVolumeName = "elyra-dsp-details-by-nbc"
+	elyraRuntimeMountPath        = "/opt/app-root/runtimes"
+	elyraRuntimeVolumeName       = "elyra-dsp-details"
 )
 
+// extractElyraRuntimeConfigInfo retrieves the essential configuration details from dspa and dashboard CRs used for pipeline execution.
 func extractElyraRuntimeConfigInfo(ctx context.Context, dynamicClient dynamic.Interface, client client.Client, notebook *nbv1.Notebook, log logr.Logger) (map[string]interface{}, error) {
 	// Define GVRs
 	dspa := schema.GroupVersionResource{
@@ -161,6 +161,7 @@ func extractElyraRuntimeConfigInfo(ctx context.Context, dynamicClient dynamic.In
 	if !ok || apiEndpoint == "" {
 		return nil, fmt.Errorf("invalid DSPA CR: missing or invalid 'externalUrl' for apiServer")
 	}
+	apiEndpoint = fmt.Sprintf("%s/pipeline", apiEndpoint)
 
 	// Construct and return the DSPA config
 	return map[string]interface{}{
@@ -184,7 +185,7 @@ func extractElyraRuntimeConfigInfo(ctx context.Context, dynamicClient dynamic.In
 	}, nil
 }
 
-// NewElyraRuntimeConfigSecret defines the desired ElyraRuntimeConfig secret object
+// NewElyraRuntimeConfigSecret defines and handles the creation, watch and update to the desired ElyraRuntimeConfig secret object
 func (r *OpenshiftNotebookReconciler) NewElyraRuntimeConfigSecret(ctx context.Context, dynamicConfig *rest.Config, c client.Client, notebook *nbv1.Notebook, controllerNamespace string, log logr.Logger) error {
 	dynamicClient, err := dynamic.NewForConfig(dynamicConfig)
 	if err != nil {
@@ -254,6 +255,8 @@ func (r *OpenshiftNotebookReconciler) NewElyraRuntimeConfigSecret(ctx context.Co
 	return nil
 }
 
+// MountElyraRuntimeConfigSecret injects the Elyra runtime configuration Secret as a volume mount into the Notebook pod.
+// This function is invoked by the webhook during Notebook mutation.
 func MountElyraRuntimeConfigSecret(ctx context.Context, client client.Client, notebook *nbv1.Notebook, log logr.Logger) error {
 
 	elyraRuntimeSecretName := elyraRuntimeSecretNamePrefix + notebook.Name
@@ -269,7 +272,6 @@ func MountElyraRuntimeConfigSecret(ctx context.Context, client client.Client, no
 		return err
 	}
 
-	// Check if the Secret is empty
 	if len(secret.Data) == 0 {
 		log.Info("Secret is empty, skipping volume mount", "Secret", elyraRuntimeSecretName)
 		return nil
@@ -286,7 +288,7 @@ func MountElyraRuntimeConfigSecret(ctx context.Context, client client.Client, no
 		},
 	}
 
-	// Append the volume if it does not already exist
+	// Append the volume if it doesn't already exist
 	volumes := &notebook.Spec.Template.Spec.Volumes
 	volumeExists := false
 	for _, v := range *volumes {
@@ -297,15 +299,18 @@ func MountElyraRuntimeConfigSecret(ctx context.Context, client client.Client, no
 	}
 	if !volumeExists {
 		*volumes = append(*volumes, secretVolume)
+		log.Info("Added elyra-dsp-details volume to notebook", "notebook", notebook.Name, "namespace", notebook.Namespace)
+	} else {
+		log.Info("elyra-dsp-details volume already exists, skipping", "notebook", notebook.Name, "namespace", notebook.Namespace)
 	}
 
 	log.Info("Injecting elyra-dsp-details volume into notebook", "notebook", notebook.Name, "namespace", notebook.Namespace)
 
-	// Append the volume mount to all containers
+	// Append volume mount to container (ensure no duplication by name or mountPath)
 	for i, container := range notebook.Spec.Template.Spec.Containers {
 		mountExists := false
 		for _, vm := range container.VolumeMounts {
-			if vm.Name == elyraRuntimeVolumeName {
+			if vm.Name == elyraRuntimeVolumeName || vm.MountPath == elyraRuntimeMountPath {
 				mountExists = true
 				break
 			}
@@ -315,14 +320,17 @@ func MountElyraRuntimeConfigSecret(ctx context.Context, client client.Client, no
 				Name:      elyraRuntimeVolumeName,
 				MountPath: elyraRuntimeMountPath,
 			})
+			log.Info("Added elyra-dsp-details volume mount", "container", container.Name, "mountPath", elyraRuntimeMountPath)
+		} else {
+			log.Info("elyra-dsp-details volume mount already exists, skipping", "container", container.Name, "mountPath", elyraRuntimeMountPath)
 		}
 	}
 
 	return nil
 }
 
-// ReconcileElyraRuntimeConfigSecret will manage the secret reconciliation
-// required by the notebook Elyra capabilities
+// ReconcileElyraRuntimeConfigSecret handles the reconciliation of the Elyra runtime config secret.
+// This function is invoked by the ODH Notebook Controller and is required for enabling Elyra functionality in notebooks.
 func (r *OpenshiftNotebookReconciler) ReconcileElyraRuntimeConfigSecret(notebook *nbv1.Notebook, ctx context.Context) error {
 	log := r.Log.WithValues("notebook", notebook.Name, "namespace", notebook.Namespace)
 	return r.NewElyraRuntimeConfigSecret(ctx, r.Config, r.Client, notebook, r.Namespace, log)
