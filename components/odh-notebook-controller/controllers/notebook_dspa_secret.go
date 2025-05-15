@@ -31,14 +31,13 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
 	"k8s.io/utils/ptr"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
-	elyraRuntimeSecretNamePrefix = "ds-pipeline-config-"
-	elyraRuntimeMountPath        = "/opt/app-root/runtimes"
-	elyraRuntimeVolumeName       = "elyra-dsp-details"
+	elyraRuntimeSecretName = "ds-pipeline-config"
+	elyraRuntimeMountPath  = "/opt/app-root/runtimes"
+	elyraRuntimeVolumeName = "elyra-dsp-details"
 )
 
 // extractElyraRuntimeConfigInfo retrieves the essential configuration details from dspa and dashboard CRs used for pipeline execution.
@@ -161,7 +160,6 @@ func extractElyraRuntimeConfigInfo(ctx context.Context, dynamicClient dynamic.In
 	if !ok || apiEndpoint == "" {
 		return nil, fmt.Errorf("invalid DSPA CR: missing or invalid 'externalUrl' for apiServer")
 	}
-	apiEndpoint = fmt.Sprintf("%s/pipeline", apiEndpoint)
 
 	// Construct and return the DSPA config
 	return map[string]interface{}{
@@ -209,10 +207,9 @@ func (r *OpenshiftNotebookReconciler) NewElyraRuntimeConfigSecret(ctx context.Co
 		return err
 	}
 
-	elyraSecretName := elyraRuntimeSecretNamePrefix + notebook.Name
 	desiredSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      elyraSecretName,
+			Name:      elyraRuntimeSecretName,
 			Namespace: notebook.Namespace,
 			Labels:    map[string]string{"opendatahub.io/managed-by": "workbenches"},
 		},
@@ -224,14 +221,23 @@ func (r *OpenshiftNotebookReconciler) NewElyraRuntimeConfigSecret(ctx context.Co
 
 	// Try to fetch existing secret
 	existingSecret := &corev1.Secret{}
-	err = c.Get(ctx, types.NamespacedName{Name: elyraSecretName, Namespace: notebook.Namespace}, existingSecret)
+	err = c.Get(ctx, types.NamespacedName{Name: elyraRuntimeSecretName, Namespace: notebook.Namespace}, existingSecret)
 	if err != nil {
 		if apierrs.IsNotFound(err) {
-			log.Info("Creating Elyra runtime config secret", "name", elyraSecretName)
-			if err := ctrl.SetControllerReference(notebook, desiredSecret, r.Scheme); err != nil {
-				log.Error(err, "Failed to set owner reference for Elyra runtime secret")
+			log.Info("Creating Elyra runtime config secret", "name", elyraRuntimeSecretName)
+			// Patch the secret with proper field ownership
+			desiredSecret.SetGroupVersionKind(corev1.SchemeGroupVersion.WithKind("Secret"))
+			patchData, err := json.Marshal(desiredSecret)
+			if err != nil {
+				log.Error(err, "Failed to marshal desired secret for apply")
 				return err
 			}
+			if err := c.Patch(ctx, desiredSecret, client.RawPatch(types.ApplyPatchType, patchData),
+				client.ForceOwnership, client.FieldOwner("dspa")); err != nil {
+				log.Error(err, "Failed to apply Elyra runtime config secret")
+				return err
+			}
+
 			if err := c.Create(ctx, desiredSecret); err != nil && !apierrs.IsAlreadyExists(err) {
 				log.Error(err, "Failed to create Elyra runtime config secret")
 				return err
@@ -242,12 +248,19 @@ func (r *OpenshiftNotebookReconciler) NewElyraRuntimeConfigSecret(ctx context.Co
 		return err
 	}
 
-	// Check if update is needed
-	if !reflect.DeepEqual(existingSecret.Data, desiredSecret.Data) {
-		log.Info("Updating Elyra runtime config secret", "name", elyraSecretName)
+	// Always reconcile label and data
+	requiresUpdate := !reflect.DeepEqual(existingSecret.Data, desiredSecret.Data) ||
+		existingSecret.Labels["opendatahub.io/managed-by"] != "workbenches"
+
+	if requiresUpdate {
+		log.Info("Overriding existing Elyra runtime config secret", "name", elyraRuntimeSecretName)
+
+		// Set correct label and data
+		existingSecret.Labels = map[string]string{"opendatahub.io/managed-by": "workbenches"}
 		existingSecret.Data = desiredSecret.Data
+
 		if err := c.Update(ctx, existingSecret); err != nil {
-			log.Error(err, "Failed to update Elyra runtime config secret")
+			log.Error(err, "Failed to override existing Elyra runtime config secret")
 			return err
 		}
 	}
@@ -259,7 +272,6 @@ func (r *OpenshiftNotebookReconciler) NewElyraRuntimeConfigSecret(ctx context.Co
 // This function is invoked by the webhook during Notebook mutation.
 func MountElyraRuntimeConfigSecret(ctx context.Context, client client.Client, notebook *nbv1.Notebook, log logr.Logger) error {
 
-	elyraRuntimeSecretName := elyraRuntimeSecretNamePrefix + notebook.Name
 	// Retrieve the Secret
 	secret := &corev1.Secret{}
 	err := client.Get(ctx, types.NamespacedName{Name: elyraRuntimeSecretName, Namespace: notebook.Namespace}, secret)
@@ -272,6 +284,11 @@ func MountElyraRuntimeConfigSecret(ctx context.Context, client client.Client, no
 		return err
 	}
 
+	// Check that it's our managed secret and has expected data
+	if secret.Labels["opendatahub.io/managed-by"] != "workbenches" {
+		log.Info("Skipping mounting secret not managed by workbenches", "Secret", elyraRuntimeSecretName)
+		return nil
+	}
 	if len(secret.Data) == 0 {
 		log.Info("Secret is empty, skipping volume mount", "Secret", elyraRuntimeSecretName)
 		return nil
