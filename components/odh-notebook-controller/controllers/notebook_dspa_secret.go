@@ -31,8 +31,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
+	"k8s.io/utils/pointer"
 	"k8s.io/utils/ptr"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -242,6 +242,45 @@ func (r *OpenshiftNotebookReconciler) NewElyraRuntimeConfigSecret(ctx context.Co
 	// 	return err
 	// }
 
+	// // Fetch the DSPA instance
+	// dspaInstance := &dspav1.DataSciencePipelinesApplication{}
+	// err = c.Get(ctx, types.NamespacedName{Name: dspaInstanceName, Namespace: desiredSecret.Namespace}, dspaInstance)
+	// if err != nil {
+	// 	log.Error(err, "Failed to fetch DSPA instance")
+	// 	return err
+	// }
+
+	// // Check if the Elyra runtime config secret exists
+	// existingSecret := &corev1.Secret{}
+	// err = c.Get(ctx, types.NamespacedName{Name: elyraRuntimeSecretName, Namespace: desiredSecret.Namespace}, existingSecret)
+
+	// if err != nil {
+	// 	if apierrs.IsNotFound(err) {
+	// 		log.Info("Creating Elyra runtime config secret", "name", elyraRuntimeSecretName)
+
+	// 		// Set DSPA instance as owner of the secret
+	// 		if err := ctrl.SetControllerReference(dspaInstance, desiredSecret, r.Scheme); err != nil {
+	// 			log.Error(err, "Failed to set DSPA owner reference on secret")
+	// 			return err
+	// 		}
+	// 		log.Info("Successfully set DSPA as owner for secret", "dspa", dspaInstance.Name)
+
+	// 		// Create the secret
+	// 		if err := c.Create(ctx, desiredSecret); err != nil {
+	// 			if !apierrs.IsAlreadyExists(err) {
+	// 				log.Error(err, "Failed to create Elyra runtime config secret")
+	// 				return err
+	// 			}
+	// 			log.Info("Secret already exists, skipping creation")
+	// 		} else {
+	// 			log.Info("Secret created successfully")
+	// 		}
+	// 		return nil
+	// 	}
+	// 	log.Error(err, "Failed to get Elyra runtime config secret")
+	// 	return err
+	// }
+
 	// Fetch the DSPA instance
 	dspaInstance := &dspav1.DataSciencePipelinesApplication{}
 	err = c.Get(ctx, types.NamespacedName{Name: dspaInstanceName, Namespace: desiredSecret.Namespace}, dspaInstance)
@@ -250,31 +289,29 @@ func (r *OpenshiftNotebookReconciler) NewElyraRuntimeConfigSecret(ctx context.Co
 		return err
 	}
 
-	// Check if the Elyra runtime config secret exists
-	existingSecret := &corev1.Secret{}
-	err = c.Get(ctx, types.NamespacedName{Name: elyraRuntimeSecretName, Namespace: desiredSecret.Namespace}, existingSecret)
+	// Set owner reference manually (avoid blockOwnerDeletion issue)
+	desiredSecret.OwnerReferences = []metav1.OwnerReference{
+		{
+			APIVersion:         dspav1.GroupVersion.String(),
+			Kind:               "DataSciencePipelinesApplication",
+			Name:               dspaInstance.Name,
+			UID:                dspaInstance.UID,
+			Controller:         pointer.Bool(true),
+			BlockOwnerDeletion: pointer.Bool(false),
+		},
+	}
 
+	// Check if the secret exists
+	existingSecret := &corev1.Secret{}
+	err = c.Get(ctx, types.NamespacedName{Name: elyraRuntimeSecretName, Namespace: notebook.Namespace}, existingSecret)
 	if err != nil {
 		if apierrs.IsNotFound(err) {
 			log.Info("Creating Elyra runtime config secret", "name", elyraRuntimeSecretName)
-
-			// Set DSPA instance as owner of the secret
-			if err := ctrl.SetControllerReference(dspaInstance, desiredSecret, r.Scheme); err != nil {
-				log.Error(err, "Failed to set DSPA owner reference on secret")
+			if err := c.Create(ctx, desiredSecret); err != nil && !apierrs.IsAlreadyExists(err) {
+				log.Error(err, "Failed to create Elyra runtime config secret")
 				return err
 			}
-			log.Info("Successfully set DSPA as owner for secret", "dspa", dspaInstance.Name)
-
-			// Create the secret
-			if err := c.Create(ctx, desiredSecret); err != nil {
-				if !apierrs.IsAlreadyExists(err) {
-					log.Error(err, "Failed to create Elyra runtime config secret")
-					return err
-				}
-				log.Info("Secret already exists, skipping creation")
-			} else {
-				log.Info("Secret created successfully")
-			}
+			log.Info("Secret created successfully")
 			return nil
 		}
 		log.Error(err, "Failed to get Elyra runtime config secret")
@@ -283,12 +320,14 @@ func (r *OpenshiftNotebookReconciler) NewElyraRuntimeConfigSecret(ctx context.Co
 
 	// Always reconcile label and data
 	requiresUpdate := !reflect.DeepEqual(existingSecret.Data, desiredSecret.Data) ||
-		existingSecret.Labels["opendatahub.io/managed-by"] != "workbenches"
+		existingSecret.Labels["opendatahub.io/managed-by"] != "workbenches" ||
+		!reflect.DeepEqual(existingSecret.OwnerReferences, desiredSecret.OwnerReferences)
 
 	if requiresUpdate {
 		log.Info("Overriding existing Elyra runtime config secret", "name", elyraRuntimeSecretName)
 
 		// Set correct label and data
+		existingSecret.OwnerReferences = desiredSecret.OwnerReferences
 		existingSecret.Labels = map[string]string{"opendatahub.io/managed-by": "workbenches"}
 		existingSecret.Data = desiredSecret.Data
 

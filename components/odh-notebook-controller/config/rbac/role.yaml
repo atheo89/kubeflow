@@ -44,6 +44,7 @@ rules:
   - watch
   - update
   - patch
+  - delete
 - apiGroups:
   - image.openshift.io
   resources:
