@@ -77,7 +77,7 @@ type OpenshiftNotebookReconciler struct {
 // +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=roles,verbs=get;list;watch;create;update;patch
 // +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=rolebindings,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="image.openshift.io",resources=imagestreams,verbs=list;get
-// +kubebuilder:rbac:groups="datasciencepipelinesapplications.opendatahub.io",resources=datasciencepipelinesapplications,verbs=get;list;watch
+// +kubebuilder:rbac:groups="datasciencepipelinesapplications.opendatahub.io",resources=datasciencepipelinesapplications,verbs=get;list;watch;update;patch
 // +kubebuilder:rbac:groups="components.platform.opendatahub.io",resources=dashboards,verbs=get;list;watch
 
 // CompareNotebooks checks if two notebooks are equal, if not return false.
