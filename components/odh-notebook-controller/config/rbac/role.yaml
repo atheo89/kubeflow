@@ -41,9 +41,9 @@ rules:
   verbs:
   - get
   - list
-  - watch
-  - update
   - patch
+  - update
+  - watch
 - apiGroups:
   - image.openshift.io
   resources:

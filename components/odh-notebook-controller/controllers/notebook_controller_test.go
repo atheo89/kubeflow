@@ -26,6 +26,7 @@ import (
 	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	dspav1 "github.com/opendatahub-io/data-science-pipelines-operator/api/v1"
 
 	routev1 "github.com/openshift/api/route/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -227,6 +228,83 @@ var _ = Describe("The Openshift Notebook controller", func() {
 			Eventually(func() error {
 				return cli.Get(ctx, types.NamespacedName{Name: roleBindingName, Namespace: namespace}, roleBinding)
 			}, duration, interval).Should(Succeed())
+		})
+
+	})
+
+	When("A DSPA object is present in the namespace then create the ds-pipeline-config secret", func() {
+		const (
+			namespace         = "default"
+			secretName        = "test-s3-secret"
+			accessKeyKey      = "accesskey"
+			secretKeyKey      = "secretkey"
+			apiServerEndpoint = "https://pipeline-api.example.com"
+		)
+
+		It("should create a Notebook after DSPA and ensure ds-pipeline-config secret is generated", func() {
+			const notebookName = "notebook-dspa"
+
+			By("Creating a fake S3 credentials Secret")
+			s3CredSecret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      secretName,
+					Namespace: namespace,
+				},
+				Data: map[string][]byte{
+					accessKeyKey: []byte("test-access-key"),
+					secretKeyKey: []byte("test-secret-key"),
+				},
+			}
+			Expect(cli.Create(ctx, s3CredSecret)).To(Succeed())
+
+			By("Creating a fake DSPA object")
+			dspaObj := &dspav1.DataSciencePipelinesApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "dspa",
+					Namespace: namespace,
+				},
+				Spec: dspav1.DSPASpec{
+					ObjectStorage: &dspav1.ObjectStorage{
+						ExternalStorage: &dspav1.ExternalStorage{
+							Host:   "minio.default.svc.cluster.local",
+							Bucket: "pipelines",
+							S3CredentialSecret: &dspav1.S3CredentialSecret{
+								SecretName: secretName,
+								AccessKey:  accessKeyKey,
+								SecretKey:  secretKeyKey,
+							},
+						},
+					},
+				},
+				Status: dspav1.DSPAStatus{
+					Components: dspav1.ComponentStatus{
+						APIServer: dspav1.ComponentDetailStatus{
+							ExternalUrl: "https://pipeline-api.example.com",
+						},
+					},
+				},
+			}
+			Expect(cli.Create(ctx, dspaObj)).To(Succeed())
+
+			//Should find the dashboard CRD as well in order to create the secret
+
+			By("Creating a Notebook in the same namespace")
+			notebook := createNotebook(notebookName, namespace)
+			Expect(cli.Create(ctx, notebook)).Should(Succeed())
+
+			By("Waiting for the ds-pipeline-config secret to be created")
+			Eventually(func() error {
+				secret := &corev1.Secret{}
+				return cli.Get(ctx, client.ObjectKey{Name: "ds-pipeline-config", Namespace: namespace}, secret)
+			}, duration, interval).Should(Succeed())
+
+			By("Verifying the secret contains expected keys")
+			createdSecret := &corev1.Secret{}
+			Expect(cli.Get(ctx, client.ObjectKey{Name: "ds-pipeline-config", Namespace: namespace}, createdSecret)).To(Succeed())
+
+			Expect(createdSecret.Data).To(HaveKey("ELYRA_URL"))
+			Expect(createdSecret.Data).To(HaveKey("ELYRA_USERNAME"))
+			Expect(createdSecret.Data).To(HaveKey("ELYRA_PASSWORD"))
 		})
 
 	})

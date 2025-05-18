@@ -41,6 +41,8 @@ import (
 	netv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	dspav1 "github.com/opendatahub-io/data-science-pipelines-operator/api/v1"
+
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -154,6 +156,7 @@ var _ = BeforeSuite(func() {
 	utilruntime.Must(nbv1.AddToScheme(scheme))
 	utilruntime.Must(routev1.AddToScheme(scheme))
 	utilruntime.Must(netv1.AddToScheme(scheme))
+	utilruntime.Must(dspav1.AddToScheme(scheme))
 
 	// +kubebuilder:scaffold:scheme
 
