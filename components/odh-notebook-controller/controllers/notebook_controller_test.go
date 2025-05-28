@@ -21,6 +21,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -1126,8 +1127,6 @@ var _ = Describe("The Openshift Notebook controller", func() {
 			if patched.Annotations == nil {
 				patched.Annotations = make(map[string]string)
 			}
-			patched.Annotations["test/reconcile-trigger"] = fmt.Sprintf("%d", time.Now().UnixNano())
-			Expect(cli.Patch(ctx, patched, client.MergeFrom(notebook))).To(Succeed())
 
 			By("Inspecting the content of the ds-pipeline-config Secret")
 			var fetchedSecret corev1.Secret
@@ -1149,6 +1148,50 @@ var _ = Describe("The Openshift Notebook controller", func() {
 						ref.Kind, ref.Name, ref.UID, ref.Controller != nil && *ref.Controller)
 				}
 			}
+
+			By("Waiting for the Notebook Pod to be created and ready")
+			var notebookPod corev1.Pod
+			Eventually(func(g Gomega) {
+				var podList corev1.PodList
+				err := cli.List(ctx, &podList, client.InNamespace(Namespace))
+				g.Expect(err).NotTo(HaveOccurred())
+
+				found := false
+				for _, pod := range podList.Items {
+					if strings.Contains(pod.Name, notebookName) {
+						notebookPod = pod
+						found = true
+						break
+					}
+				}
+				g.Expect(found).To(BeTrue(), "Expected to find a pod for notebook %q", notebookName)
+			}, time.Minute, 2*time.Second).Should(Succeed())
+
+			By("Inspecting the Notebook Pod to verify volume mounts for ds-pipeline-config")
+			volumeFound := false
+			for _, volume := range notebookPod.Spec.Volumes {
+				if volume.Name == "elyra-dsp-details" {
+					Expect(volume.Secret).NotTo(BeNil(), "elyra-dsp-details volume should be a secret")
+					Expect(volume.Secret.SecretName).To(Equal("ds-pipeline-config"))
+					fmt.Fprintf(GinkgoWriter, "✅ Found volume 'elyra-dsp-details' backed by Secret 'ds-pipeline-config'\n")
+					volumeFound = true
+					break
+				}
+			}
+			Expect(volumeFound).To(BeTrue(), "elyra-dsp-details volume not found on the pod")
+
+			mountFound := false
+			for _, container := range notebookPod.Spec.Containers {
+				for _, mount := range container.VolumeMounts {
+					if mount.Name == "elyra-dsp-details" {
+						Expect(mount.MountPath).To(Equal("/opt/app-root/runtimes"))
+						fmt.Fprintf(GinkgoWriter, "✅ Found volumeMount for 'elyra-dsp-details' at path '/opt/app-root/runtimes'\n")
+						mountFound = true
+						break
+					}
+				}
+			}
+			Expect(mountFound).To(BeTrue(), "VolumeMount for elyra-dsp-details not found")
 
 			By("Deleting the DSPA and Notebook")
 			dspa := &dspav1.DataSciencePipelinesApplication{}
