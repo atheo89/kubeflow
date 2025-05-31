@@ -165,6 +165,38 @@ func (r *OpenshiftNotebookReconciler) NewElyraRuntimeConfigSecret(ctx context.Co
 		return err
 	}
 
+	// === NEW CHECK START ===
+
+	// Define Dashboard GVR
+	dashboard := schema.GroupVersionResource{
+		Group:    "components.platform.opendatahub.io",
+		Version:  "v1alpha1",
+		Resource: "dashboards",
+	}
+
+	// Try to get the Dashboard
+	_, err = dynamicClient.Resource(dashboard).Get(ctx, dashboardInstanceName, metav1.GetOptions{})
+	if err != nil {
+		if apierrs.IsNotFound(err) {
+			log.Info("Dashboard CR not found; skipping Elyra secret creation")
+			return nil
+		}
+		log.Error(err, "Failed to retrieve Dashboard CR")
+		return err
+	}
+
+	// Try to get the DSPA
+	dspaInstance := &dspav1.DataSciencePipelinesApplication{}
+	err = c.Get(ctx, types.NamespacedName{Name: dspaInstanceName, Namespace: notebook.Namespace}, dspaInstance)
+	if err != nil {
+		if apierrs.IsNotFound(err) {
+			log.Info("DSPA CR not found; skipping Elyra secret creation")
+			return nil
+		}
+		log.Error(err, "Failed to retrieve DSPA CR")
+		return err
+	}
+
 	dspData, err := extractElyraRuntimeConfigInfo(ctx, dynamicClient, c, notebook, log)
 	if err != nil {
 		log.Error(err, "Failed to extract Elyra runtime config info")
@@ -194,7 +226,7 @@ func (r *OpenshiftNotebookReconciler) NewElyraRuntimeConfigSecret(ctx context.Co
 	}
 
 	// Fetch the DSPA instance
-	dspaInstance := &dspav1.DataSciencePipelinesApplication{}
+	dspaInstance = &dspav1.DataSciencePipelinesApplication{}
 	err = c.Get(ctx, types.NamespacedName{Name: dspaInstanceName, Namespace: desiredSecret.Namespace}, dspaInstance)
 	if err != nil {
 		log.Error(err, "Failed to fetch DSPA instance")
