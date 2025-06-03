@@ -1178,56 +1178,23 @@ var _ = Describe("The Openshift Notebook controller", func() {
 
 			By("Patching the Dashboard status.url and Ready condition to simulate readiness")
 			// Fetch the Dashboard to get a valid resourceVersion
-			dashboardLookup := &unstructured.Unstructured{}
-			dashboardLookup.SetGroupVersionKind(schema.GroupVersionKind{
-				Group:   "components.platform.opendatahub.io",
-				Version: "v1alpha1",
-				Kind:    "Dashboard",
-			})
-			dashboardLookup.SetName(dashboardInstanceName)
-			dashboardLookup.SetNamespace(Namespace)
-			Expect(cli.Get(ctx, client.ObjectKeyFromObject(dashboardLookup), dashboardLookup)).To(Succeed())
+			Expect(cli.Get(ctx, client.ObjectKeyFromObject(dashboard), dashboard)).To(Succeed())
 			// Create a patch with updated status.url and conditions
-			dashboardPatch := dashboardLookup.DeepCopy()
-			_ = unstructured.SetNestedField(dashboardPatch.Object, "https://dashboard.example.com", "status", "url")
+			dashboardPatch := dashboard.DeepCopy()
+			err := unstructured.SetNestedField(dashboardPatch.Object, "https://dashboard.example.com", "status", "url")
+			Expect(err).ToNot(HaveOccurred())
 			readyCondition := map[string]interface{}{
 				"type":   "Ready",
 				"status": "True",
 				"reason": "ComponentsAvailable",
 			}
-			_ = unstructured.SetNestedSlice(dashboardPatch.Object, []interface{}{readyCondition}, "status", "conditions")
-			patch := client.MergeFrom(dashboardLookup)
+			err = unstructured.SetNestedSlice(dashboardPatch.Object, []interface{}{readyCondition}, "status", "conditions")
+			Expect(err).ToNot(HaveOccurred())
+			patch := client.MergeFrom(dashboard)
 			Expect(cli.Status().Patch(ctx, dashboardPatch, patch)).To(Succeed())
 
-			By("Verifying the Dashboard object is present and Ready")
-			Eventually(func() (bool, error) {
-				var fetched unstructured.Unstructured
-				fetched.SetGroupVersionKind(schema.GroupVersionKind{
-					Group:   "components.platform.opendatahub.io",
-					Version: "v1alpha1",
-					Kind:    "Dashboard",
-				})
-				err := cli.Get(ctx, types.NamespacedName{
-					Name:      dashboardInstanceName,
-					Namespace: Namespace,
-				}, &fetched)
-				if err != nil {
-					return false, err
-				}
-				conditions, found, err := unstructured.NestedSlice(fetched.Object, "status", "conditions")
-				if err != nil || !found {
-					return false, nil
-				}
-
-				for _, c := range conditions {
-					if conditionMap, ok := c.(map[string]interface{}); ok {
-						if conditionMap["type"] == "Ready" && conditionMap["status"] == "True" {
-							return true, nil
-						}
-					}
-				}
-				return false, nil
-			}, time.Second*10, time.Millisecond*250).Should(BeTrue())
+			By("Waiting the Dashboard object is present and Ready")
+			time.Sleep(10 * time.Millisecond)
 
 			By("Creating Notebook")
 			notebook := createNotebook(notebookName, Namespace)
@@ -1238,18 +1205,38 @@ var _ = Describe("The Openshift Notebook controller", func() {
 				return cli.Get(ctx, types.NamespacedName{Name: dsSecretName, Namespace: Namespace}, &corev1.Secret{})
 			}, 30*time.Second, 2*time.Second).Should(Succeed())
 
-			// This is needed until RHOAIENG-24545 bug get fix, related with the maybeRestartRunningNotebook logic
-			By("Triggering Notebook reconciliation")
-			patched := notebook.DeepCopy()
-			if patched.Annotations == nil {
-				patched.Annotations = make(map[string]string)
+			// This is needed until RHOAIENG-24545 bug get fix, related with the maybeRestartRunningNotebook func
+			By("Stopping the Notebook to allow volume injection")
+			stopPatch := notebook.DeepCopy()
+			if stopPatch.Annotations == nil {
+				stopPatch.Annotations = map[string]string{}
 			}
-			patched.Annotations["test/reconcile-trigger"] = fmt.Sprintf("%d", time.Now().UnixNano())
-			Expect(cli.Patch(ctx, patched, client.MergeFrom(notebook))).To(Succeed())
+			stopPatch.Annotations["kubeflow-resource-stopped"] = "true"
+			Expect(cli.Patch(ctx, stopPatch, client.MergeFrom(notebook))).To(Succeed())
+
+			By("Waiting for controller to reconcile after notebook is stopped")
+			Eventually(func(g Gomega) {
+				var refreshed nbv1.Notebook
+				g.Expect(cli.Get(ctx, types.NamespacedName{
+					Name:      notebookName,
+					Namespace: Namespace,
+				}, &refreshed)).To(Succeed())
+
+				found := false
+				for _, container := range refreshed.Spec.Template.Spec.Containers {
+					for _, vm := range container.VolumeMounts {
+						if vm.Name == "elyra-dsp-details" && vm.MountPath == "/opt/app-root/runtimes" {
+							found = true
+							break
+						}
+					}
+				}
+				g.Expect(found).To(BeTrue(), "Expected volumeMount 'elyra-dsp-details' after notebook was stopped")
+			}, 10*time.Second, 500*time.Millisecond).Should(Succeed())
 
 			By("Check notebook status")
 			notebook = &nbv1.Notebook{}
-			err := cli.Get(ctx, client.ObjectKey{Name: notebookName, Namespace: Namespace}, notebook)
+			err = cli.Get(ctx, client.ObjectKey{Name: notebookName, Namespace: Namespace}, notebook)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Validating the presence of volumeMount 'elyra-dsp-details'")
@@ -1264,7 +1251,7 @@ var _ = Describe("The Openshift Notebook controller", func() {
 			}
 			Expect(foundVolumeMount).To(BeTrue(), "Expected volumeMount 'elyra-dsp-details' to be present in notebook container")
 
-			By("Validating the content and ownership of the ds-pipeline-config Secret")
+			By("Validating the content of the ds-pipeline-config Secret")
 			var fetchedSecret corev1.Secret
 			err = cli.Get(ctx, types.NamespacedName{
 				Name:      dsSecretName,
@@ -1274,6 +1261,21 @@ var _ = Describe("The Openshift Notebook controller", func() {
 			Expect(fetchedSecret.Data).To(HaveKey("odh_dsp.json"))
 			Expect(fetchedSecret.Data["odh_dsp.json"]).ToNot(BeEmpty())
 			Expect(fetchedSecret.OwnerReferences).ToNot(BeEmpty(), "ds-pipeline-config Secret should have ownerReference")
+
+			By("Modifying DSPA Bucket field to trigger update")
+			Expect(cli.Get(ctx, client.ObjectKeyFromObject(dspaObj), dspaObj)).To(Succeed())
+			dspaObj.Spec.ExternalStorage.Bucket = "changed-bucket"
+			Expect(cli.Update(ctx, dspaObj)).To(Succeed())
+
+			By("Checking if ds-pipeline-config Secret is updated")
+			Eventually(func(g Gomega) {
+				var updatedSecret corev1.Secret
+				g.Expect(cli.Get(ctx, types.NamespacedName{
+					Name:      dsSecretName,
+					Namespace: Namespace,
+				}, &updatedSecret)).To(Succeed())
+				g.Expect(updatedSecret.ResourceVersion).ToNot(Equal(fetchedSecret), "Secret resource version should change on DSPA update")
+			}, 10*time.Second, 500*time.Millisecond).Should(Succeed())
 
 			By("Deleting the DSPA and Notebook")
 			Expect(cli.Delete(ctx, notebook)).To(Succeed())
